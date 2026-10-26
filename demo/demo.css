@@ -1,0 +1,7 @@
+body { margin: 0; color: #243044; background: #f7f9fc; font: 16px/1.5 system-ui, sans-serif; }
+.container { max-width: 960px; margin: auto; padding: 0 24px; }
+.mt-5 { margin-top: 3rem; }
+.mb-4 { margin-bottom: 1.5rem; overflow: auto; }
+canvas { display: block; background: white; }
+canvas:focus-visible { outline: 2px solid #2673dd !important; outline-offset: 3px; }
+a { color: #185bb5; }

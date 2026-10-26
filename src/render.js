@@ -1,3 +1,30 @@
+/**
+ * @typedef {object} Bounds
+ * @property {number} top The minimum Y coordinate.
+ * @property {number} right The maximum X coordinate.
+ * @property {number} bottom The maximum Y coordinate.
+ * @property {number} left The minimum X coordinate.
+ * @property {number} x The minimum X coordinate.
+ * @property {number} y The minimum Y coordinate.
+ * @property {number} width The horizontal extent.
+ * @property {number} height The vertical extent.
+ */
+
+/**
+ * @typedef {object} RenderOptions
+ * @property {string|CanvasGradient|CanvasPattern|null} [fillStyle] The fill, or no fill.
+ * @property {string|CanvasGradient|CanvasPattern|null} [strokeStyle] The stroke, or no stroke.
+ * @property {number} [lineWidth] The stroke width in canvas units.
+ * @property {number} [shadowBlur=0] The shadow blur amount.
+ * @property {string|null} [shadowColor] The shadow color, or no shadow.
+ * @property {number} [shadowOffsetX=0] The horizontal shadow offset.
+ * @property {number} [shadowOffsetY=0] The vertical shadow offset.
+ */
+
+/**
+ * Creates an empty axis-aligned bounding box.
+ * @returns {Bounds} A zero-sized box at the origin.
+ */
 export function emptyBounds() {
     return {
         top: 0,
@@ -11,6 +38,11 @@ export function emptyBounds() {
     };
 }
 
+/**
+ * Applies shared fill, stroke, and shadow options to a context.
+ * @param {CanvasRenderingContext2D} context The drawing context.
+ * @param {RenderOptions} [options={}] The rendering styles.
+ */
 export function applyStyles(context, options = {}) {
     if (options.fillStyle != null) {
         context.fillStyle = options.fillStyle;
@@ -27,6 +59,12 @@ export function applyStyles(context, options = {}) {
     context.shadowOffsetY = options.shadowOffsetY ?? 0;
 }
 
+/**
+ * Rounds bounds outward and adds space for strokes and shadows.
+ * @param {Bounds} bounds The unpadded geometry bounds.
+ * @param {RenderOptions} [options={}] The rendering styles.
+ * @returns {{x: number, y: number, width: number, height: number}} The integer canvas origin and dimensions.
+ */
 export function getRenderBounds(bounds, options = {}) {
     const stroke = options.strokeStyle ?
         Math.max(options.lineWidth ?? 0, 0) :

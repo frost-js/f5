@@ -1,5 +1,5 @@
-import Shape from './../../src/shape.js';
-import { expect, test } from './../support/unit.js';
+import { expect, test } from '#unit';
+import Shape from '../../src/shape.js';
 
 test.describe('Shape Unit', () => {
     test('keeps layers internal', ({ hitTestContext }) => {

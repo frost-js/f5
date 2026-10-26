@@ -1,5 +1,5 @@
-import Canvas from './../../src/canvas.js';
-import { expect, test } from './../support/unit.js';
+import { expect, test } from '#unit';
+import Canvas from '../../src/canvas.js';
 
 test.describe('Canvas Unit', () => {
     test('requires a canvas-like node', ({ animationWindow }) => {

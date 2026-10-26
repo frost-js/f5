@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F5 CanvasContext Gradient</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/elusivecodes/frostui@latest/dist/frost-ui.css">
+    <link rel="stylesheet" href="../demo.css">
     <script src="../../dist/f5.js"></script>
 </head>
 
@@ -20,47 +20,7 @@
         <div class="mb-4" id="radialGradient"></div>
     </div>
 
-    <script>
-        class LinearSketch extends F5.Canvas {
-
-            setup() {
-                this.noLoop();
-
-                const gradient = this.context.linearGradient(300, 0, 300, 400);
-                gradient.addColorStop(0, 'blue');
-                gradient.addColorStop(.5, 'black');
-                gradient.addColorStop(1, 'red');
-
-                this.context
-                    .fill(gradient)
-                    .rect(0, 0, 600, 400);
-            }
-
-        }
-
-        class RadialSketch extends F5.Canvas {
-
-            setup() {
-                this.noLoop();
-
-                const gradient = this.context.radialGradient(300, 200, 450, 300, 200, 100);
-                gradient.addColorStop(0, 'blue');
-                gradient.addColorStop(.5, 'black');
-                gradient.addColorStop(1, 'red');
-
-                this.context
-                    .fill(gradient)
-                    .rect(0, 0, 600, 400);
-            }
-
-        }
-
-        const linearGradient = document.getElementById('linearGradient');
-        const radialGradient = document.getElementById('radialGradient');
-
-        LinearSketch.attach(linearGradient);
-        RadialSketch.attach(radialGradient);
-    </script>
+    <script src="gradient.js"></script>
 </body>
 
 </html>

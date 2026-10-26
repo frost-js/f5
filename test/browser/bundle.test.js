@@ -1,11 +1,6 @@
-import { expect, test } from '@playwright/test';
-import { gotoBundleHarness } from './harness.js';
+import { expect, test } from '#test';
 
 test.describe('Bundle Smoke', () => {
-    test.beforeEach(async ({ page }) => {
-        await gotoBundleHarness(page);
-    });
-
     test('loads the built bundle and exposes a working public API', async ({ page }) => {
         const result = await page.evaluate(() => {
             const exports = Object.keys(window.F5).sort();

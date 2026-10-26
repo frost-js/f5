@@ -1,0 +1,8 @@
+{
+    "private": true,
+    "type": "module",
+    "imports": {
+        "#test": "./support/test.js",
+        "#unit": "./support/unit.js"
+    }
+}

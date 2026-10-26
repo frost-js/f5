@@ -1,5 +1,5 @@
-import CanvasContext from './../../src/canvas-context.js';
-import { expect, test } from './../support/unit.js';
+import { expect, test } from '#unit';
+import CanvasContext from '../../src/canvas-context.js';
 
 test.describe('CanvasContext Unit', () => {
     test('freezes the shared defaults object', () => {

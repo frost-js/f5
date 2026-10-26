@@ -6,7 +6,7 @@ export default class Vector {
      * Create a new Vector.
      * @param {number} [x=0] The X position.
      * @param {number} [y=0] The Y position.
-     * @return {Vector} A new Vector object.
+     * @returns {Vector} A new Vector object.
      */
     static create(x = 0, y = 0) {
         return new this(x, y);
@@ -16,7 +16,7 @@ export default class Vector {
      * Parse a Vector or X/Y co-ordinates.
      * @param {Vector|number} x A Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {Vector} The parsed Vector.
+     * @returns {Vector} The parsed Vector.
      */
     static parse(x = 0, y = 0) {
         if (x instanceof Vector) {
@@ -28,7 +28,7 @@ export default class Vector {
 
     /**
      * Create a random Vector.
-     * @return {Vector} A new Vector object.
+     * @returns {Vector} A new Vector object.
      */
     static random() {
         return new this(Math.random(), Math.random());
@@ -42,13 +42,13 @@ export default class Vector {
     constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;
-    };
+    }
 
     /**
      * Add another Vector to the Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     add(x, y) {
         const other = this.constructor.parse(x, y);
@@ -63,7 +63,7 @@ export default class Vector {
      * Calculate the angle to another Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {number} The angle to the other Vector.
+     * @returns {number} The angle to the other Vector.
      */
     angleTo(x, y) {
         const other = this.constructor.parse(x, y);
@@ -73,17 +73,19 @@ export default class Vector {
 
     /**
      * Clone the Vector.
-     * @return {Vector} A new Vector.
+     * @returns {Vector} A new Vector.
      */
     clone() {
-        return new this.constructor(this.x, this.y);
+        const VectorClass = this.constructor;
+
+        return new VectorClass(this.x, this.y);
     }
 
     /**
      * Calculate the distance to another Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {number} The distance to the other Vector.
+     * @returns {number} The distance to the other Vector.
      */
     distTo(x, y) {
         const other = this.constructor.parse(x, y);
@@ -95,7 +97,7 @@ export default class Vector {
      * Divide the Vector by another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     div(x, y) {
         const other = this.constructor.parse(x, y);
@@ -110,7 +112,7 @@ export default class Vector {
      * Calculate the dot product of the Vector with another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {number} The dot product.
+     * @returns {number} The dot product.
      */
     dot(x, y) {
         const other = this.constructor.parse(x, y);
@@ -120,7 +122,7 @@ export default class Vector {
 
     /**
      * Get the angle of the Vector.
-     * @return {number} The angle.
+     * @returns {number} The angle.
      */
     getHeading() {
         return Math.atan2(this.y, this.x);
@@ -128,7 +130,7 @@ export default class Vector {
 
     /**
      * Get the magnitude of the Vector.
-     * @return {number} The magnitude.
+     * @returns {number} The magnitude.
      */
     getMag() {
         return Math.hypot(this.x, this.y);
@@ -137,7 +139,7 @@ export default class Vector {
     /**
      * Limit the Vector magnitude.
      * @param {number} mag The magnitude.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     limit(mag) {
         if (this.getMag() <= mag) {
@@ -151,7 +153,7 @@ export default class Vector {
      * Multiply the Vector by another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     mult(x, y) {
         const other = this.constructor.parse(x, y);
@@ -164,7 +166,7 @@ export default class Vector {
 
     /**
      * Normalize the Vector magnitude.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     normalize() {
         return this.setMag(1);
@@ -173,7 +175,7 @@ export default class Vector {
     /**
      * Rotate the Vector.
      * @param {number} angle The angle.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     rotate(angle) {
         angle += this.getHeading();
@@ -189,7 +191,7 @@ export default class Vector {
     /**
      * Set the angle of the Vector.
      * @param {number} angle The angle.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     setHeading(angle) {
         const mag = this.getMag();
@@ -203,7 +205,7 @@ export default class Vector {
     /**
      * Set the magnitude of the Vector.
      * @param {number} mag The magnitude.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     setMag(mag) {
         const angle = this.getHeading();
@@ -218,7 +220,7 @@ export default class Vector {
      * Subtract another Vector from the Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {Vector} The Vector.
+     * @returns {Vector} The Vector.
      */
     sub(x, y) {
         const other = this.constructor.parse(x, y);

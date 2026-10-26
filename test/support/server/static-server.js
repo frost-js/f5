@@ -5,20 +5,24 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const port = Number(process.env.PORT || 4173);
-const rootDir = fileURLToPath(new URL('./../../', import.meta.url));
+const rootDir = fileURLToPath(new URL('../../../', import.meta.url));
 
 const routes = new Map([
     [
         '/',
-        fileURLToPath(new URL('./harness.html', import.meta.url)),
+        fileURLToPath(new URL('../app/index.html', import.meta.url)),
     ],
     [
         '/source',
-        fileURLToPath(new URL('./source-harness.html', import.meta.url)),
+        fileURLToPath(new URL('../app/source.html', import.meta.url)),
     ],
 ]);
 
 const staticRoots = [
+    {
+        prefix: '/demo/',
+        root: path.join(rootDir, 'demo'),
+    },
     {
         prefix: '/dist/',
         root: path.join(rootDir, 'dist'),
@@ -33,6 +37,8 @@ function getContentType(filePath) {
     switch (path.extname(filePath)) {
         case '.html':
             return 'text/html; charset=utf-8';
+        case '.css':
+            return 'text/css; charset=utf-8';
         case '.js':
             return 'text/javascript; charset=utf-8';
         case '.map':
@@ -96,7 +102,7 @@ const server = createServer(async (request, response) => {
             'Content-Type': getContentType(filePath),
         });
     } catch (error) {
-        send(response, 500, error.message);
+        send(response, error.code === 'ENOENT' ? 404 : 500, 'Unable to read file');
     }
 });
 

@@ -1,11 +1,6 @@
-import { expect, test } from '@playwright/test';
-import { gotoSourceHarness } from './harness.js';
+import { expect, test } from '#test';
 
 test.describe('CanvasContext Browser Integration', () => {
-    test.beforeEach(async ({ page }) => {
-        await gotoSourceHarness(page);
-    });
-
     test('merges constructor options into the active options', async ({ page }) => {
         const options = await page.evaluate(() => {
             const { CanvasContext } = window.F5;

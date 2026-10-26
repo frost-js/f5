@@ -1,3 +1,5 @@
+/** @import { Bounds, RenderOptions } from './render.js'; */
+
 import Path from './path.js';
 import { emptyBounds, getRenderBounds } from './render.js';
 import Vector from './vector.js';
@@ -34,7 +36,7 @@ export default class Shape {
      * Determine if the shape contains a point.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @return {Boolean} TRUE if the shape contains the point, otherwise FALSE.
+     * @returns {boolean} TRUE if the shape contains the point, otherwise FALSE.
      */
     containsPoint(x, y) {
         const anchor = Vector.create(this.x + this.anchorX, this.y + this.anchorY);
@@ -64,7 +66,7 @@ export default class Shape {
     /**
      * Add a contour to the shape.
      * @param {(path: Path) => void} callback The callback to generate the path.
-     * @return {Shape} The Shape.
+     * @returns {Shape} The Shape.
      */
     contour(callback) {
         return this.layer(callback, true);
@@ -72,7 +74,7 @@ export default class Shape {
 
     /**
      * Get the bounding box of the shape.
-     * @return {object} The bounding box.
+     * @returns {Bounds} The bounding box.
      */
     getBoundingBox() {
         const bounding = {
@@ -123,8 +125,8 @@ export default class Shape {
     /**
      * Add a layer to the shape.
      * @param {(path: Path) => void} callback The callback to generate the path.
-     * @param {Boolean} [contour=false] Whether the path is contoured.
-     * @return {Shape} The Shape.
+     * @param {boolean} [contour=false] Whether the path is contoured.
+     * @returns {Shape} The Shape.
      */
     layer(callback, contour = false) {
         const path = new Path(this.#context);
@@ -140,8 +142,8 @@ export default class Shape {
 
     /**
      * Render the shape.
-     * @param {object} options The rendering options.
-     * @return {HTMLCanvasElement} The rendered canvas.
+     * @param {RenderOptions} [options={}] The rendering options.
+     * @returns {HTMLCanvasElement} The rendered canvas.
      */
     render(options = {}) {
         const canvas = document.createElement('canvas');
@@ -196,7 +198,7 @@ export default class Shape {
      * Rotate a point around the anchor.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @return {Vector} The rotated Vector.
+     * @returns {Vector} The rotated Vector.
      */
     #rotatePoint(x, y) {
         const translatedX = x - this.anchorX;

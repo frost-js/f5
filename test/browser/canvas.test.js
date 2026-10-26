@@ -1,9 +1,45 @@
-import { expect, test } from '@playwright/test';
-import { gotoSourceHarness } from './harness.js';
+import { expect, test } from '#test';
 
 test.describe('Canvas Browser Integration', () => {
-    test.beforeEach(async ({ page }) => {
-        await gotoSourceHarness(page);
+    test('destroy stops browser animation and releases input listeners', async ({ page }) => {
+        await page.clock.install({ time: 0 });
+        await page.clock.pauseAt(1000);
+        await page.evaluate(() => {
+            class Sketch extends F5.Canvas {
+                onKeyDown() {
+                    this.keyDowns++;
+                }
+
+                setup() {
+                    this.frames = 0;
+                    this.keyDowns = 0;
+                }
+
+                update() {
+                    this.frames++;
+                }
+            }
+
+            window.sketch = new Sketch(document.getElementById('canvas'));
+        });
+        await page.clock.runFor(50);
+        await page.locator('#canvas').focus();
+        await page.keyboard.down('a');
+        const before = await page.evaluate(() => {
+            const frames = window.sketch.frames;
+            window.sketch.destroy();
+            window.sketch.destroy();
+            return frames;
+        });
+        expect(before).toBeGreaterThan(1);
+        await page.clock.runFor(100);
+        await page.keyboard.up('a');
+        await page.keyboard.press('b');
+        expect(await page.evaluate(() => ({
+            frames: window.sketch.frames,
+            keyDowns: window.sketch.keyDowns,
+            pressed: window.sketch.isKeyPressed(),
+        }))).toEqual({ frames: before, keyDowns: 1, pressed: false });
     });
 
     test('passes delta and elapsed time to update using a real canvas node', async ({ page }) => {
@@ -52,6 +88,7 @@ test.describe('Canvas Browser Integration', () => {
 
                 return window.sketch.calls;
             } finally {
+                window.sketch?.destroy();
                 delete window.sketch;
             }
         });

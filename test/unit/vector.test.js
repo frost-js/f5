@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import Vector from './../../src/vector.js';
+import Vector from '../../src/vector.js';
 
 test.describe('Vector', () => {
     test('creates a vector', () => {

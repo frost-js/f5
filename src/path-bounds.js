@@ -50,6 +50,16 @@ function pointOnCircle(x, y, radius, angle) {
     };
 }
 
+/**
+ * Returns endpoints and cardinal extrema along a circular arc.
+ * @param {number} x Center X coordinate.
+ * @param {number} y Center Y coordinate.
+ * @param {number} radius Circle radius.
+ * @param {number} startAngle Start angle in radians.
+ * @param {number} endAngle End angle in radians.
+ * @param {boolean} [counterClockwise=false] Whether the arc runs counterclockwise.
+ * @returns {Array<{x: number, y: number}>} Points enclosing the drawn curve.
+ */
 export function getArcBoundsPoints(
     x,
     y,
@@ -100,6 +110,16 @@ function getQuadraticExtrema(p0, p1, p2) {
     return t > EPSILON && t < 1 - EPSILON ? [t] : [];
 }
 
+/**
+ * Returns endpoints and extrema of a quadratic Bezier curve.
+ * @param {number} startX Start X coordinate.
+ * @param {number} startY Start Y coordinate.
+ * @param {number} controlX Control X coordinate.
+ * @param {number} controlY Control Y coordinate.
+ * @param {number} endX End X coordinate.
+ * @param {number} endY End Y coordinate.
+ * @returns {Array<{x: number, y: number}>} Points enclosing the drawn curve.
+ */
 export function getQuadraticBoundsPoints(startX, startY, controlX, controlY, endX, endY) {
     const ts = new Set([
         0,
@@ -160,6 +180,18 @@ function getCubicExtrema(p0, p1, p2, p3) {
     ].filter((t) => t > EPSILON && t < 1 - EPSILON);
 }
 
+/**
+ * Returns endpoints and extrema of a cubic Bezier curve.
+ * @param {number} startX Start X coordinate.
+ * @param {number} startY Start Y coordinate.
+ * @param {number} control1X First control X coordinate.
+ * @param {number} control1Y First control Y coordinate.
+ * @param {number} control2X Second control X coordinate.
+ * @param {number} control2Y Second control Y coordinate.
+ * @param {number} endX End X coordinate.
+ * @param {number} endY End Y coordinate.
+ * @returns {Array<{x: number, y: number}>} Points enclosing the drawn curve.
+ */
 export function getCubicBoundsPoints(
     startX,
     startY,
@@ -269,6 +301,14 @@ function getArcToSegment(start, corner, end, radius) {
     };
 }
 
+/**
+ * Calculates tangent-arc bounds and the resulting current point.
+ * @param {{x: number, y: number}} start Current path position.
+ * @param {{x: number, y: number}} corner Intersection of the tangent lines.
+ * @param {{x: number, y: number}} end Point on the outgoing tangent.
+ * @param {number} radius Arc radius.
+ * @returns {{currentPoint: {x: number, y: number}, points: Array<{x: number, y: number}>}} The endpoint and points enclosing the arc.
+ */
 export function getArcToBounds(start, corner, end, radius) {
     const segment = getArcToSegment(start, corner, end, radius);
 

@@ -1,3 +1,5 @@
+/** @import { Bounds, RenderOptions } from './render.js'; */
+
 import {
     getArcBoundsPoints,
     getArcToBounds,
@@ -56,7 +58,7 @@ export default class Path {
      * @param {number} radius The arc radius.
      * @param {number} startAngle The arc start angle.
      * @param {number} endAngle The arc end angle.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     arc(x, y, radius, startAngle, endAngle) {
         const startsSubpath = !this.#hasVertex;
@@ -87,7 +89,7 @@ export default class Path {
      * @param {number} cy2 The second control point Y position.
      * @param {number} x2 The end X position.
      * @param {number} y2 The end Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
         this.#moveTo(x1, y1);
@@ -106,7 +108,7 @@ export default class Path {
      * @param {number} cy2 The second control point Y position.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     bezierVertex(cx1, cy1, cx2, cy2, x, y) {
         const startX = this.#currentX ?? cx1;
@@ -132,7 +134,7 @@ export default class Path {
      * @param {number} x The X position of the circle center.
      * @param {number} y The Y position of the circle center.
      * @param {number} radius The circle radius.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     circle(x, y, radius) {
         return this.ellipse(x, y, radius * 2, radius * 2);
@@ -140,7 +142,7 @@ export default class Path {
 
     /**
      * Close the path.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     close() {
         this.#path.closePath();
@@ -158,7 +160,7 @@ export default class Path {
      * Determine if the path contains a point.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @return {Boolean} TRUE if the path contains the point, otherwise FALSE.
+     * @returns {boolean} TRUE if the path contains the point, otherwise FALSE.
      */
     containsPoint(x, y) {
         return this.#context.isPointInPath(this.#path, x, y);
@@ -173,7 +175,7 @@ export default class Path {
      * @param {number} cx2 The second control point X position.
      * @param {number} cy2 The second control point Y position.
      * @param {number} radius The arc radius.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     curve(x1, y1, cx1, cy1, cx2, cy2, radius) {
         this.#moveTo(x1, y1);
@@ -199,7 +201,7 @@ export default class Path {
      * @param {number} cx2 The second control point X position.
      * @param {number} cy2 The second control point Y position.
      * @param {number} radius The arc radius.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     curveVertex(cx1, cy1, cx2, cy2, radius) {
         const start = this.#hasVertex ?
@@ -228,7 +230,7 @@ export default class Path {
      * @param {number} width The ellipse width.
      * @param {number} height The ellipse height.
      * @param {number} [angle=0] The ellipse angle.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     ellipse(x, y, width, height, angle = 0) {
         const xRadius = width / 2;
@@ -248,7 +250,7 @@ export default class Path {
 
     /**
      * Get the bounding box of the path.
-     * @return {object} The bounding box.
+     * @returns {Bounds} The bounding box.
      */
     getBoundingBox() {
         if (
@@ -278,7 +280,7 @@ export default class Path {
      * @param {number} y1 The start Y position.
      * @param {number} x2 The end X position.
      * @param {number} y2 The end Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     line(x1, y1, x2, y2) {
         this.#moveTo(x1, y1);
@@ -300,7 +302,7 @@ export default class Path {
      * @param {number} y3 The third point Y position.
      * @param {number} x4 The fourth point X position.
      * @param {number} y4 The fourth point Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     quad(x1, y1, x2, y2, x3, y3, x4, y4) {
         this.#moveTo(x1, y1);
@@ -322,7 +324,7 @@ export default class Path {
      * @param {number} cy The control point Y position.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     quadraticVertex(cx, cy, x, y) {
         const startX = this.#currentX ?? cx;
@@ -348,7 +350,7 @@ export default class Path {
      * @param {number} y The Y position.
      * @param {number} width The rectangle width.
      * @param {number} height The rectangle height.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     rect(x, y, width, height) {
         this.#path.rect(x, y, width, height);
@@ -361,8 +363,8 @@ export default class Path {
 
     /**
      * Render the path.
-     * @param {object} options The rendering options.
-     * @return {HTMLCanvasElement} The rendered canvas.
+     * @param {RenderOptions} [options={}] The rendering options.
+     * @returns {HTMLCanvasElement} The rendered canvas.
      */
     render(options = {}) {
         const bounds = this.getBoundingBox();
@@ -396,7 +398,7 @@ export default class Path {
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @param {number} size The square size.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     square(x, y, size) {
         return this.rect(x, y, size, size);
@@ -410,7 +412,7 @@ export default class Path {
      * @param {number} y2 The second Y position.
      * @param {number} x3 The third X position.
      * @param {number} y3 The third Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     triangle(x1, y1, x2, y2, x3, y3) {
         this.#moveTo(x1, y1);
@@ -429,7 +431,7 @@ export default class Path {
      * Add a vertex.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @return {Path} The Path.
+     * @returns {Path} The Path.
      */
     vertex(x, y) {
         if (!this.#hasVertex) {

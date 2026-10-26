@@ -1,5 +1,5 @@
-import Path from './../../src/path.js';
-import { expect, test } from './../support/unit.js';
+import { expect, test } from '#unit';
+import Path from '../../src/path.js';
 
 test.describe('Path Unit', () => {
     test('requires a hit-test capable context', () => {

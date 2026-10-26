@@ -1,3 +1,16 @@
+/**
+ * @typedef {object} CanvasRuntime
+ * @property {Window|EventTarget} [eventTarget] Target for global input and default animation scheduling.
+ * @property {function(): number} [now] Monotonic clock returning milliseconds.
+ * @property {function(FrameRequestCallback): number} [requestAnimationFrame] Schedules a frame.
+ * @property {function(number): void} [cancelAnimationFrame] Cancels a scheduled frame.
+ */
+
+/**
+ * @typedef {object} CanvasOptions
+ * @property {CanvasRuntime} [runtime] Overrides for timing, frame scheduling, and input events.
+ */
+
 import CanvasContext from './canvas-context.js';
 import Vector from './vector.js';
 
@@ -26,8 +39,8 @@ export default class Canvas {
      * @param {HTMLElement} [parent] The parent node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
-     * @param {object} [options] Additional canvas options.
-     * @return {Canvas} A new Canvas object.
+     * @param {CanvasOptions} [options={}] Additional canvas options.
+     * @returns {Canvas} A new Canvas object.
      */
     static attach(parent = document.body, width = 600, height = 400, options = {}) {
         const canvas = document.createElement('canvas');
@@ -42,8 +55,7 @@ export default class Canvas {
      * @param {HTMLCanvasElement} node The canvas node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
-     * @param {object} [options] Additional canvas options.
-     * @param {object} [options.runtime] Runtime overrides for timing, events, and frame scheduling.
+     * @param {CanvasOptions} [options={}] Additional canvas options.
      */
     constructor(node, width = 600, height = 400, options = {}) {
         if (!node || typeof node.addEventListener !== 'function') {
@@ -114,7 +126,7 @@ export default class Canvas {
 
     /**
      * Stop the loop and remove event listeners.
-     * @return {Canvas} The Canvas.
+     * @returns {Canvas} The Canvas.
      */
     destroy() {
         if (this.#destroyed) {
@@ -142,7 +154,7 @@ export default class Canvas {
     /**
      * Determine if a key is being pressed.
      * @param {string} code The key code.
-     * @return {Boolean} TRUE if the key is being pressed, otherwise FALSE.
+     * @returns {boolean} TRUE if the key is being pressed, otherwise FALSE.
      */
     isKeyPressed(code) {
         return code ?
@@ -153,7 +165,7 @@ export default class Canvas {
     /**
      * Determine if a mouse button is being pressed.
      * @param {number} button The mouse button.
-     * @return {Boolean} TRUE if the mouse button is being pressed, otherwise FALSE.
+     * @returns {boolean} TRUE if the mouse button is being pressed, otherwise FALSE.
      */
     isMousePressed(button = 0) {
         return this.#mouseDown.has(button) && this.#mouseX !== null && this.#mouseY !== null;
@@ -161,7 +173,7 @@ export default class Canvas {
 
     /**
      * Get the mouse position.
-     * @return {Vector|null} The mouse position.
+     * @returns {Vector|null} The mouse position.
      */
     mousePos() {
         if (this.#mouseX === null || this.#mouseY === null) {
@@ -186,6 +198,8 @@ export default class Canvas {
 
     /**
      * Key down callback.
+     * @param {string} _code The physical keyboard code.
+     * @param {KeyboardEvent} _event The native browser event.
      */
     onKeyDown(_code, _event) {
 
@@ -193,6 +207,8 @@ export default class Canvas {
 
     /**
      * Key press callback.
+     * @param {string} _key The typed key value.
+     * @param {KeyboardEvent} _event The native browser event.
      */
     onKeyPress(_key, _event) {
 
@@ -200,6 +216,8 @@ export default class Canvas {
 
     /**
      * Key up callback.
+     * @param {string} _code The physical keyboard code.
+     * @param {KeyboardEvent} _event The native browser event.
      */
     onKeyUp(_code, _event) {
 
@@ -207,6 +225,8 @@ export default class Canvas {
 
     /**
      * Mouse click callback.
+     * @param {number} _button The mouse button index.
+     * @param {MouseEvent} _event The native browser event.
      */
     onMouseClick(_button, _event) {
 
@@ -214,6 +234,8 @@ export default class Canvas {
 
     /**
      * Mouse down callback.
+     * @param {number} _button The mouse button index.
+     * @param {MouseEvent} _event The native browser event.
      */
     onMouseDown(_button, _event) {
 
@@ -221,6 +243,7 @@ export default class Canvas {
 
     /**
      * Mouse enter callback.
+     * @param {MouseEvent} _event The native browser event.
      */
     onMouseEnter(_event) {
 
@@ -228,6 +251,7 @@ export default class Canvas {
 
     /**
      * Mouse leave callback.
+     * @param {MouseEvent} _event The native browser event.
      */
     onMouseLeave(_event) {
 
@@ -235,6 +259,9 @@ export default class Canvas {
 
     /**
      * Mouse move callback.
+     * @param {number} _x The canvas-local X coordinate.
+     * @param {number} _y The canvas-local Y coordinate.
+     * @param {MouseEvent} _event The native browser event.
      */
     onMouseMove(_x, _y, _event) {
 
@@ -242,6 +269,8 @@ export default class Canvas {
 
     /**
      * Mouse up callback.
+     * @param {number} _button The mouse button index.
+     * @param {MouseEvent} _event The native browser event.
      */
     onMouseUp(_button, _event) {
 

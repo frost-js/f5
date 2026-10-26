@@ -1,7 +1,8 @@
 {
     "name": "@fr0st/f5",
     "version": "2.0.4",
-    "description": "F5 is a free, open-source canvas library for JavaScript.",
+    "private": false,
+    "description": "Lightweight 2D canvas drawing, animation, paths, shapes, and vector mathematics.",
     "keywords": [
         "canvas",
         "context",
@@ -14,8 +15,26 @@
         "url": "https://github.com/elusivecodes/F5/issues",
         "email": "elusivecodes@gmail.com"
     },
-    "main": "src/index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/elusivecodes/F5.git"
+    },
+    "license": "MIT",
+    "author": "Elusive <elusivecodes@gmail.com>",
     "type": "module",
+    "exports": {
+        ".": {
+            "import": "./dist/f5.esm.js",
+            "default": "./dist/f5.esm.js"
+        },
+        "./dist/*": "./dist/*",
+        "./src/*": "./src/*",
+        "./package.json": "./package.json"
+    },
+    "main": "./dist/f5.esm.js",
+    "jsdelivr": "./dist/f5.min.js",
+    "unpkg": "./dist/f5.min.js",
+    "module": "./dist/f5.esm.js",
     "files": [
         "dist",
         "LICENSE",
@@ -23,28 +42,34 @@
         "src"
     ],
     "scripts": {
-        "build": "npm run js-compile && npm run js-minify",
-        "js-compile": "rollup --config",
-        "js-lint": "eslint",
-        "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/f5.js.map,url=f5.min.js.map\" --output dist/f5.min.js dist/f5.js",
-        "test": "npm run test:unit && npm run test:browser",
-        "test:browser": "npm run build && playwright test --forbid-only",
-        "test:headed": "npm run build && playwright test --headed",
-        "test:ui": "npm run build && playwright test --ui",
-        "test:unit": "playwright test --config=playwright.unit.config.js"
+        "build": "vite build && vite build --mode umd",
+        "lint": "eslint",
+        "test": "npm run build && npm run test:unit && npm run test:browser",
+        "test:browser": "playwright test --forbid-only",
+        "test:coverage": "playwright test --config=playwright.coverage.config.js --forbid-only",
+        "test:headed": "playwright test --forbid-only --headed",
+        "test:ui": "playwright test --ui",
+        "test:unit": "playwright test --config=playwright.unit.config.js --forbid-only"
     },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/elusivecodes/F5.git"
-    },
-    "author": "Elusive <elusivecodes@gmail.com>",
-    "license": "MIT",
-    "private": false,
+    "browserslist": [
+        "baseline newly available"
+    ],
     "devDependencies": {
-        "@fr0st/eslint-config": "^3.0.1",
-        "@playwright/test": "^1.58.2",
-        "eslint": "^10.1.0",
-        "rollup": "^4.60.0",
-        "terser": "^5.46.1"
+        "@fr0st/eslint-config": "^6.0.1",
+        "@playwright/test": "^1.64.1",
+        "eslint": "^10.13.0",
+        "monocart-reporter": "2.14.0",
+        "vite": "^8.3.5"
+    },
+    "overrides": {
+        "monocart-reporter": {
+            "monocart-coverage-reports": "2.13.0"
+        }
+    },
+    "engines": {
+        "node": "^20.19.0 || ^22.13.0 || >=24"
+    },
+    "publishConfig": {
+        "access": "public"
     }
 }

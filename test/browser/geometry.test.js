@@ -1,11 +1,6 @@
-import { expect, test } from '@playwright/test';
-import { gotoSourceHarness } from './harness.js';
+import { expect, test } from '#test';
 
 test.describe('Path And Shape Browser Integration', () => {
-    test.beforeEach(async ({ page }) => {
-        await gotoSourceHarness(page);
-    });
-
     test('computes path bounds, containment, and render size', async ({ page }) => {
         const result = await page.evaluate(() => {
             const { Path } = window.F5;

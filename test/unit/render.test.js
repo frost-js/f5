@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
     applyStyles,
     getRenderBounds,
-} from './../../src/render.js';
+} from '../../src/render.js';
 
 test.describe('Render', () => {
     test('pads render bounds for strokes and shadows', () => {
