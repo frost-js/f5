@@ -479,10 +479,12 @@ export default class Path {
      * @param {{x: number, y: number}[]} points The points to include.
      */
     #setBoundsFromPoints(points) {
-        this.#setBounds(
-            points.map((point) => point.x),
-            points.map((point) => point.y),
-        );
+        for (const { x, y } of points) {
+            this.#bounding.top = Math.min(this.#bounding.top, y);
+            this.#bounding.right = Math.max(this.#bounding.right, x);
+            this.#bounding.bottom = Math.max(this.#bounding.bottom, y);
+            this.#bounding.left = Math.min(this.#bounding.left, x);
+        }
     }
 
     /**

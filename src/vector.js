@@ -178,14 +178,7 @@ export default class Vector {
      * @returns {Vector} The Vector.
      */
     rotate(angle) {
-        angle += this.getHeading();
-
-        const mag = this.getMag();
-
-        this.x = Math.cos(angle) * mag;
-        this.y = Math.sin(angle) * mag;
-
-        return this;
+        return this.setHeading(angle + this.getHeading());
     }
 
     /**

@@ -183,12 +183,10 @@ function getArcToSegment(start, corner, end, radius) {
         x: startTangent.x - center.x,
         y: startTangent.y - center.y,
     };
-    const inputDirection = normalizeVector(corner.x - start.x, corner.y - start.y);
-
-    if (!inputDirection) {
-        return null;
-    }
-
+    const inputDirection = {
+        x: -toStart.x,
+        y: -toStart.y,
+    };
     const counterClockwiseTangent = {
         x: -startRadius.y,
         y: startRadius.x,

@@ -48,15 +48,13 @@ export default class Shape {
         let pointInShape = false;
 
         for (const { contour, path } of this.#layers) {
-            if (
-                (pointInShape && !contour) ||
-                (!pointInShape && contour) ||
-                !path.containsPoint(rotatedPoint.x - this.x, rotatedPoint.y - this.y)
-            ) {
+            if (pointInShape === !contour) {
                 continue;
             }
 
-            pointInShape = !pointInShape;
+            if (path.containsPoint(rotatedPoint.x - this.x, rotatedPoint.y - this.y)) {
+                pointInShape = !contour;
+            }
         }
 
         return pointInShape;

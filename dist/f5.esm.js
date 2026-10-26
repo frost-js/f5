@@ -123,8 +123,10 @@ function getArcToSegment(start, corner, end, radius) {
 		x: startTangent.x - center.x,
 		y: startTangent.y - center.y
 	};
-	const inputDirection = normalizeVector(corner.x - start.x, corner.y - start.y);
-	if (!inputDirection) return null;
+	const inputDirection = {
+		x: -toStart.x,
+		y: -toStart.y
+	};
 	const counterClockwiseTangent = {
 		x: -startRadius.y,
 		y: startRadius.x
@@ -803,7 +805,12 @@ var Path = class {
 	* @param {{x: number, y: number}[]} points The points to include.
 	*/
 	#setBoundsFromPoints(points) {
-		this.#setBounds(points.map((point) => point.x), points.map((point) => point.y));
+		for (const { x, y } of points) {
+			this.#bounding.top = Math.min(this.#bounding.top, y);
+			this.#bounding.right = Math.max(this.#bounding.right, x);
+			this.#bounding.bottom = Math.max(this.#bounding.bottom, y);
+			this.#bounding.left = Math.min(this.#bounding.left, x);
+		}
 	}
 	/**
 	* Sets the current point.
@@ -971,11 +978,7 @@ var Vector = class Vector {
 	* @returns {Vector} The Vector.
 	*/
 	rotate(angle) {
-		angle += this.getHeading();
-		const mag = this.getMag();
-		this.x = Math.cos(angle) * mag;
-		this.y = Math.sin(angle) * mag;
-		return this;
+		return this.setHeading(angle + this.getHeading());
 	}
 	/**
 	* Sets the angle of the Vector.
@@ -1050,8 +1053,8 @@ var Shape = class {
 		const rotatedPoint = Vector.create(x, y).sub(anchor).rotate(-this.angle).add(anchor);
 		let pointInShape = false;
 		for (const { contour, path } of this.#layers) {
-			if (pointInShape && !contour || !pointInShape && contour || !path.containsPoint(rotatedPoint.x - this.x, rotatedPoint.y - this.y)) continue;
-			pointInShape = !pointInShape;
+			if (pointInShape === !contour) continue;
+			if (path.containsPoint(rotatedPoint.x - this.x, rotatedPoint.y - this.y)) pointInShape = !contour;
 		}
 		return pointInShape;
 	}
@@ -1382,9 +1385,7 @@ var CanvasContext = class {
 	* @returns {CanvasContext} The CanvasContext.
 	*/
 	drawPath(path, x = 0, y = 0) {
-		const bounds = getRenderBounds(path.getBoundingBox(), this.#options);
-		const canvas = path.render(this.#options);
-		return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+		return this.#drawGeometry(path, x, y);
 	}
 	/**
 	* Draws a Shape on the canvas.
@@ -1394,9 +1395,7 @@ var CanvasContext = class {
 	* @returns {CanvasContext} The CanvasContext.
 	*/
 	drawShape(shape, x = 0, y = 0) {
-		const bounds = getRenderBounds(shape.getBoundingBox(), this.#options);
-		const canvas = shape.render(this.#options);
-		return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+		return this.#drawGeometry(shape, x, y);
 	}
 	/**
 	* Draws an ellipse.
@@ -1837,6 +1836,18 @@ var CanvasContext = class {
 		this.#applyStyles();
 		if (this.#options.fillStyle) this.#context.fill();
 		if (this.#options.strokeStyle) this.#context.stroke();
+	}
+	/**
+	* Renders and draws reusable geometry with the active styles.
+	* @param {Path|Shape} geometry The geometry to draw.
+	* @param {number} x The X offset.
+	* @param {number} y The Y offset.
+	* @returns {CanvasContext} The CanvasContext.
+	*/
+	#drawGeometry(geometry, x, y) {
+		const bounds = getRenderBounds(geometry.getBoundingBox(), this.#options);
+		const canvas = geometry.render(this.#options);
+		return this.drawImage(canvas, bounds.x + x, bounds.y + y);
 	}
 };
 

@@ -261,10 +261,7 @@ export default class CanvasContext {
      * @returns {CanvasContext} The CanvasContext.
      */
     drawPath(path, x = 0, y = 0) {
-        const bounds = getRenderBounds(path.getBoundingBox(), this.#options);
-        const canvas = path.render(this.#options);
-
-        return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+        return this.#drawGeometry(path, x, y);
     }
 
     /**
@@ -275,10 +272,7 @@ export default class CanvasContext {
      * @returns {CanvasContext} The CanvasContext.
      */
     drawShape(shape, x = 0, y = 0) {
-        const bounds = getRenderBounds(shape.getBoundingBox(), this.#options);
-        const canvas = shape.render(this.#options);
-
-        return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+        return this.#drawGeometry(shape, x, y);
     }
 
     /**
@@ -849,5 +843,19 @@ export default class CanvasContext {
         if (this.#options.strokeStyle) {
             this.#context.stroke();
         }
+    }
+
+    /**
+     * Renders and draws reusable geometry with the active styles.
+     * @param {Path|Shape} geometry The geometry to draw.
+     * @param {number} x The X offset.
+     * @param {number} y The Y offset.
+     * @returns {CanvasContext} The CanvasContext.
+     */
+    #drawGeometry(geometry, x, y) {
+        const bounds = getRenderBounds(geometry.getBoundingBox(), this.#options);
+        const canvas = geometry.render(this.#options);
+
+        return this.drawImage(canvas, bounds.x + x, bounds.y + y);
     }
 }
