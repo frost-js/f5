@@ -1,8 +1,8 @@
-import Canvas from './canvas/index.js';
-import CanvasContext from './canvas-context/index.js';
-import Path from './path/index.js';
-import Shape from './shape/index.js';
-import Vector from './vector/index.js';
+import CanvasContext from './canvas-context.js';
+import Canvas from './canvas.js';
+import Path from './path.js';
+import Shape from './shape.js';
+import Vector from './vector.js';
 
 export {
     Canvas,

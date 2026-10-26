@@ -1,9 +1,39 @@
-import { parseVector } from './helpers.js';
-
 /**
  * Vector
  */
 export default class Vector {
+    /**
+     * Create a new Vector.
+     * @param {number} [x=0] The X position.
+     * @param {number} [y=0] The Y position.
+     * @return {Vector} A new Vector object.
+     */
+    static create(x = 0, y = 0) {
+        return new this(x, y);
+    }
+
+    /**
+     * Parse a Vector or X/Y co-ordinates.
+     * @param {Vector|number} x A Vector, or the X position.
+     * @param {number} [y] The Y position.
+     * @return {Vector} The parsed Vector.
+     */
+    static parse(x = 0, y = 0) {
+        if (x instanceof Vector) {
+            return x;
+        }
+
+        return new this(x, y);
+    }
+
+    /**
+     * Create a random Vector.
+     * @return {Vector} A new Vector object.
+     */
+    static random() {
+        return new this(Math.random(), Math.random());
+    }
+
     /**
      * New Vector constructor.
      * @param {number} [x=0] The X position.
@@ -12,7 +42,7 @@ export default class Vector {
     constructor(x = 0, y = 0) {
         this.x = x;
         this.y = y;
-    }
+    };
 
     /**
      * Add another Vector to the Vector.
@@ -21,7 +51,7 @@ export default class Vector {
      * @return {Vector} The Vector.
      */
     add(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
         this.x += other.x;
         this.y += other.y;
@@ -36,10 +66,10 @@ export default class Vector {
      * @return {number} The angle to the other Vector.
      */
     angleTo(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
         return other.getHeading() - this.getHeading();
-    };
+    }
 
     /**
      * Clone the Vector.
@@ -56,7 +86,7 @@ export default class Vector {
      * @return {number} The distance to the other Vector.
      */
     distTo(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
         return Math.hypot(other.x - this.x, other.y - this.y);
     }
@@ -68,7 +98,7 @@ export default class Vector {
      * @return {Vector} The Vector.
      */
     div(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
         this.x /= other.x;
         this.y /= other.y;
@@ -77,18 +107,15 @@ export default class Vector {
     }
 
     /**
-     * Perform a dot product multiplication of the Vector with another.
+     * Calculate the dot product of the Vector with another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
-     * @return {Vector} The Vector.
+     * @return {number} The dot product.
      */
     dot(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
-        this.x *= other.y;
-        this.y *= other.x;
-
-        return this;
+        return this.x * other.x + this.y * other.y;
     }
 
     /**
@@ -127,7 +154,7 @@ export default class Vector {
      * @return {Vector} The Vector.
      */
     mult(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
         this.x *= other.x;
         this.y *= other.y;
@@ -194,29 +221,11 @@ export default class Vector {
      * @return {Vector} The Vector.
      */
     sub(x, y) {
-        const other = parseVector(x, y);
+        const other = this.constructor.parse(x, y);
 
         this.x -= other.x;
         this.y -= other.y;
 
         return this;
-    }
-
-    /**
-     * Create a new Vector.
-     * @param {number} [x=0] The X position.
-     * @param {number} [y=0] The Y position.
-     * @return {Vector} A new Vector object.
-     */
-    static create(x = 0, y = 0) {
-        return new this(x, y);
-    }
-
-    /**
-     * Create a random Vector.
-     * @return {Vector} A new Vector object.
-     */
-    static random() {
-        return new this(Math.random(), Math.random());
     }
 }

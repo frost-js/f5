@@ -41,7 +41,7 @@
                 this.rotation = Math.random() / 2 + 0.5;
             }
 
-            update(time) {
+            update(deltaTime, elapsedTime) {
                 this.shape.x += this.force.x;
                 this.shape.y += this.force.y;
 
@@ -53,7 +53,7 @@
                     this.force.y *= -1;
                 }
 
-                this.shape.angle = time * this.rotation;
+                this.shape.angle = elapsedTime * this.rotation;
 
                 const mousePos = this.mousePos();
 

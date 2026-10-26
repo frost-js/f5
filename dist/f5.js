@@ -4,26 +4,512 @@
     (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.F5 = {}));
 })(this, (function (exports) { 'use strict';
 
+    const EPSILON = 1e-10;
+    const TAU = Math.PI * 2;
+    const CARDINAL_ANGLES = [
+        0,
+        Math.PI / 2,
+        Math.PI,
+        Math.PI * 1.5,
+    ];
+
+    function normalizeAngle(angle) {
+        const normalized = angle % TAU;
+
+        return normalized < 0 ? normalized + TAU : normalized;
+    }
+
+    function getArcSweep(startAngle, endAngle, counterClockwise) {
+        const start = normalizeAngle(startAngle);
+        const end = normalizeAngle(endAngle);
+        let sweep = counterClockwise ? start - end : end - start;
+
+        if (sweep < 0) {
+            sweep += TAU;
+        }
+
+        return sweep;
+    }
+
+    function isAngleWithinArc(startAngle, endAngle, angle, counterClockwise) {
+        const start = normalizeAngle(startAngle);
+        const target = normalizeAngle(angle);
+        const sweep = getArcSweep(startAngle, endAngle, counterClockwise);
+
+        if (sweep <= EPSILON) {
+            return Math.abs(target - start) <= EPSILON;
+        }
+
+        let delta = counterClockwise ? start - target : target - start;
+
+        if (delta < 0) {
+            delta += TAU;
+        }
+
+        return delta <= sweep + EPSILON;
+    }
+
+    function pointOnCircle(x, y, radius, angle) {
+        return {
+            x: x + Math.cos(angle) * radius,
+            y: y + Math.sin(angle) * radius,
+        };
+    }
+
+    function getArcBoundsPoints(
+        x,
+        y,
+        radius,
+        startAngle,
+        endAngle,
+        counterClockwise = false,
+    ) {
+        const points = [
+            pointOnCircle(x, y, radius, startAngle),
+            pointOnCircle(x, y, radius, endAngle),
+        ];
+
+        if (Math.abs(endAngle - startAngle) >= TAU - EPSILON) {
+            for (const angle of CARDINAL_ANGLES) {
+                points.push(pointOnCircle(x, y, radius, angle));
+            }
+
+            return points;
+        }
+
+        for (const angle of CARDINAL_ANGLES) {
+            if (isAngleWithinArc(startAngle, endAngle, angle, counterClockwise)) {
+                points.push(pointOnCircle(x, y, radius, angle));
+            }
+        }
+
+        return points;
+    }
+
+    function getQuadraticValue(p0, p1, p2, t) {
+        const inverse = 1 - t;
+
+        return inverse * inverse * p0 +
+            2 * inverse * t * p1 +
+            t * t * p2;
+    }
+
+    function getQuadraticExtrema(p0, p1, p2) {
+        const denominator = p0 - 2 * p1 + p2;
+
+        if (Math.abs(denominator) <= EPSILON) {
+            return [];
+        }
+
+        const t = (p0 - p1) / denominator;
+
+        return t > EPSILON && t < 1 - EPSILON ? [t] : [];
+    }
+
+    function getQuadraticBoundsPoints(startX, startY, controlX, controlY, endX, endY) {
+        const ts = new Set([
+            0,
+            1,
+            ...getQuadraticExtrema(startX, controlX, endX),
+            ...getQuadraticExtrema(startY, controlY, endY),
+        ]);
+
+        return [...ts].map((t) => ({
+            x: getQuadraticValue(startX, controlX, endX, t),
+            y: getQuadraticValue(startY, controlY, endY, t),
+        }));
+    }
+
+    function getCubicValue(p0, p1, p2, p3, t) {
+        const inverse = 1 - t;
+
+        return inverse * inverse * inverse * p0 +
+            3 * inverse * inverse * t * p1 +
+            3 * inverse * t * t * p2 +
+            t * t * t * p3;
+    }
+
+    function getCubicExtrema(p0, p1, p2, p3) {
+        const a = -p0 + 3 * p1 - 3 * p2 + p3;
+        const b = 3 * p0 - 6 * p1 + 3 * p2;
+        const c = -3 * p0 + 3 * p1;
+
+        if (Math.abs(a) <= EPSILON) {
+            if (Math.abs(b) <= EPSILON) {
+                return [];
+            }
+
+            const t = -c / (2 * b);
+
+            return t > EPSILON && t < 1 - EPSILON ? [t] : [];
+        }
+
+        const derivativeA = 3 * a;
+        const derivativeB = 2 * b;
+        const discriminant = derivativeB * derivativeB - 4 * derivativeA * c;
+
+        if (discriminant < -EPSILON) {
+            return [];
+        }
+
+        if (Math.abs(discriminant) <= EPSILON) {
+            const t = -derivativeB / (2 * derivativeA);
+
+            return t > EPSILON && t < 1 - EPSILON ? [t] : [];
+        }
+
+        const sqrt = Math.sqrt(discriminant);
+
+        return [
+            (-derivativeB + sqrt) / (2 * derivativeA),
+            (-derivativeB - sqrt) / (2 * derivativeA),
+        ].filter((t) => t > EPSILON && t < 1 - EPSILON);
+    }
+
+    function getCubicBoundsPoints(
+        startX,
+        startY,
+        control1X,
+        control1Y,
+        control2X,
+        control2Y,
+        endX,
+        endY,
+    ) {
+        const ts = new Set([
+            0,
+            1,
+            ...getCubicExtrema(startX, control1X, control2X, endX),
+            ...getCubicExtrema(startY, control1Y, control2Y, endY),
+        ]);
+
+        return [...ts].map((t) => ({
+            x: getCubicValue(startX, control1X, control2X, endX, t),
+            y: getCubicValue(startY, control1Y, control2Y, endY, t),
+        }));
+    }
+
+    function normalizeVector(x, y) {
+        const length = Math.hypot(x, y);
+
+        return length <= EPSILON ? null : {
+            x: x / length,
+            y: y / length,
+        };
+    }
+
+    function dot(a, b) {
+        return a.x * b.x + a.y * b.y;
+    }
+
+    function getArcToSegment(start, corner, end, radius) {
+        if (radius <= 0) {
+            return null;
+        }
+
+        const toStart = normalizeVector(start.x - corner.x, start.y - corner.y);
+        const toEnd = normalizeVector(end.x - corner.x, end.y - corner.y);
+
+        if (!toStart || !toEnd) {
+            return null;
+        }
+
+        const angle = Math.acos(Math.min(Math.max(dot(toStart, toEnd), -1), 1));
+
+        if (angle <= EPSILON || Math.abs(Math.PI - angle) <= EPSILON) {
+            return null;
+        }
+
+        const tangentDistance = radius / Math.tan(angle / 2);
+
+        if (!Number.isFinite(tangentDistance)) {
+            return null;
+        }
+
+        const startTangent = {
+            x: corner.x + toStart.x * tangentDistance,
+            y: corner.y + toStart.y * tangentDistance,
+        };
+        const endTangent = {
+            x: corner.x + toEnd.x * tangentDistance,
+            y: corner.y + toEnd.y * tangentDistance,
+        };
+        const bisector = normalizeVector(toStart.x + toEnd.x, toStart.y + toEnd.y);
+
+        if (!bisector) {
+            return null;
+        }
+
+        const centerDistance = radius / Math.sin(angle / 2);
+        const center = {
+            x: corner.x + bisector.x * centerDistance,
+            y: corner.y + bisector.y * centerDistance,
+        };
+        const startRadius = {
+            x: startTangent.x - center.x,
+            y: startTangent.y - center.y,
+        };
+        const inputDirection = normalizeVector(corner.x - start.x, corner.y - start.y);
+
+        if (!inputDirection) {
+            return null;
+        }
+
+        const counterClockwiseTangent = {
+            x: -startRadius.y,
+            y: startRadius.x,
+        };
+        const clockwiseTangent = {
+            x: startRadius.y,
+            y: -startRadius.x,
+        };
+
+        return {
+            center,
+            counterClockwise: dot(clockwiseTangent, inputDirection) >
+                dot(counterClockwiseTangent, inputDirection),
+            endAngle: Math.atan2(endTangent.y - center.y, endTangent.x - center.x),
+            endTangent,
+            startAngle: Math.atan2(startTangent.y - center.y, startTangent.x - center.x),
+            startTangent,
+        };
+    }
+
+    function getArcToBounds(start, corner, end, radius) {
+        const segment = getArcToSegment(start, corner, end, radius);
+
+        if (!segment) {
+            return {
+                currentPoint: corner,
+                points: [start, corner],
+            };
+        }
+
+        return {
+            currentPoint: segment.endTangent,
+            points: [
+                start,
+                segment.startTangent,
+                segment.endTangent,
+                ...getArcBoundsPoints(
+                    segment.center.x,
+                    segment.center.y,
+                    radius,
+                    segment.startAngle,
+                    segment.endAngle,
+                    segment.counterClockwise,
+                ),
+            ],
+        };
+    }
+
+    function emptyBounds() {
+        return {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0,
+        };
+    }
+
+    function applyStyles(context, options = {}) {
+        if (options.fillStyle != null) {
+            context.fillStyle = options.fillStyle;
+        }
+
+        if (options.strokeStyle != null) {
+            context.strokeStyle = options.strokeStyle;
+        }
+
+        context.lineWidth = options.lineWidth ?? 1;
+        context.shadowBlur = options.shadowBlur ?? 0;
+        context.shadowColor = options.shadowColor ?? 'transparent';
+        context.shadowOffsetX = options.shadowOffsetX ?? 0;
+        context.shadowOffsetY = options.shadowOffsetY ?? 0;
+    }
+
+    function getRenderBounds(bounds, options = {}) {
+        const stroke = options.strokeStyle ?
+            Math.max(options.lineWidth ?? 0, 0) :
+            0;
+        const hasShadow = Boolean(options.shadowColor);
+        const shadowBlur = hasShadow ? Math.max(options.shadowBlur ?? 0, 0) : 0;
+        const shadowOffsetX = hasShadow ? options.shadowOffsetX ?? 0 : 0;
+        const shadowOffsetY = hasShadow ? options.shadowOffsetY ?? 0 : 0;
+
+        let left = bounds.x - stroke;
+        let top = bounds.y - stroke;
+        let right = bounds.x + bounds.width + stroke;
+        let bottom = bounds.y + bounds.height + stroke;
+
+        if (shadowBlur || shadowOffsetX || shadowOffsetY) {
+            left = Math.min(left, left + shadowOffsetX - shadowBlur);
+            top = Math.min(top, top + shadowOffsetY - shadowBlur);
+            right = Math.max(right, right + shadowOffsetX + shadowBlur);
+            bottom = Math.max(bottom, bottom + shadowOffsetY + shadowBlur);
+        }
+
+        const x = Math.floor(left);
+        const y = Math.floor(top);
+
+        return {
+            x,
+            y,
+            width: Math.max(Math.ceil(right) - x, 0),
+            height: Math.max(Math.ceil(bottom) - y, 0),
+        };
+    }
+
     /**
      * Path
      */
     class Path {
+        #bounding;
+        #context;
+        #currentX;
+        #currentY;
+        #hasVertex;
+        #path;
+        #subpathStartX;
+        #subpathStartY;
+
         /**
          * New Path constructor.
          * @param {CanvasRenderingContext2D} context The canvas context.
          */
         constructor(context) {
-            this._context = context;
+            if (!context || typeof context.isPointInPath !== 'function') {
+                throw new TypeError('Path requires a 2D canvas context.');
+            }
 
-            this._path = new Path2D();
-            this._hasVertex = false;
+            if (typeof Path2D !== 'function') {
+                throw new TypeError('Path requires Path2D support.');
+            }
 
-            this._bounding = {
+            this.#context = context;
+
+            this.#path = new Path2D();
+            this.#hasVertex = false;
+            this.#currentX = null;
+            this.#currentY = null;
+            this.#subpathStartX = null;
+            this.#subpathStartY = null;
+
+            this.#bounding = {
                 top: Number.POSITIVE_INFINITY,
                 right: Number.NEGATIVE_INFINITY,
                 bottom: Number.NEGATIVE_INFINITY,
                 left: Number.POSITIVE_INFINITY,
             };
+        }
+
+        /**
+         * Add an arc.
+         * @param {number} x The X position of the arc center.
+         * @param {number} y The Y position of the arc center.
+         * @param {number} radius The arc radius.
+         * @param {number} startAngle The arc start angle.
+         * @param {number} endAngle The arc end angle.
+         * @return {Path} The Path.
+         */
+        arc(x, y, radius, startAngle, endAngle) {
+            const startsSubpath = !this.#hasVertex;
+
+            this.#path.arc(x, y, radius, startAngle, endAngle);
+            this.#setBoundsFromPoints(getArcBoundsPoints(x, y, radius, startAngle, endAngle));
+
+            if (startsSubpath) {
+                this.#subpathStartX = x + Math.cos(startAngle) * radius;
+                this.#subpathStartY = y + Math.sin(startAngle) * radius;
+            }
+
+            this.#setCurrentPoint(
+                x + Math.cos(endAngle) * radius,
+                y + Math.sin(endAngle) * radius,
+            );
+
+            return this;
+        }
+
+        /**
+         * Add a bezier curve.
+         * @param {number} x1 The start X position.
+         * @param {number} y1 The start Y position.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} x2 The end X position.
+         * @param {number} y2 The end Y position.
+         * @return {Path} The Path.
+         */
+        bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
+            this.#moveTo(x1, y1);
+            this.#path.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
+            this.#setBoundsFromPoints(getCubicBoundsPoints(x1, y1, cx1, cy1, cx2, cy2, x2, y2));
+            this.#setCurrentPoint(x2, y2, false);
+
+            return this;
+        }
+
+        /**
+         * Add a bezier vertex.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {Path} The Path.
+         */
+        bezierVertex(cx1, cy1, cx2, cy2, x, y) {
+            const startX = this.#currentX ?? cx1;
+            const startY = this.#currentY ?? cy1;
+
+            this.#path.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
+            this.#setBoundsFromPoints(
+                this.#hasVertex ?
+                    getCubicBoundsPoints(startX, startY, cx1, cy1, cx2, cy2, x, y) :
+                    [
+                        { x: cx1, y: cy1 },
+                        { x: cx2, y: cy2 },
+                        { x, y },
+                    ],
+            );
+            this.#setCurrentPoint(x, y);
+
+            return this;
+        }
+
+        /**
+         * Add a circle.
+         * @param {number} x The X position of the circle center.
+         * @param {number} y The Y position of the circle center.
+         * @param {number} radius The circle radius.
+         * @return {Path} The Path.
+         */
+        circle(x, y, radius) {
+            return this.ellipse(x, y, radius * 2, radius * 2);
+        }
+
+        /**
+         * Close the path.
+         * @return {Path} The Path.
+         */
+        close() {
+            this.#path.closePath();
+
+            if (this.#subpathStartX !== null && this.#subpathStartY !== null) {
+                this.#currentX = this.#subpathStartX;
+                this.#currentY = this.#subpathStartY;
+                this.#hasVertex = true;
+            }
+
+            return this;
         }
 
         /**
@@ -33,7 +519,89 @@
          * @return {Boolean} TRUE if the path contains the point, otherwise FALSE.
          */
         containsPoint(x, y) {
-            return this._context.isPointInPath(this._path, x, y);
+            return this.#context.isPointInPath(this.#path, x, y);
+        }
+
+        /**
+         * Add a curve.
+         * @param {number} x1 The start X position.
+         * @param {number} y1 The start Y position.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} radius The arc radius.
+         * @return {Path} The Path.
+         */
+        curve(x1, y1, cx1, cy1, cx2, cy2, radius) {
+            this.#moveTo(x1, y1);
+            this.#path.arcTo(cx1, cy1, cx2, cy2, radius);
+
+            const { currentPoint, points } = getArcToBounds(
+                { x: x1, y: y1 },
+                { x: cx1, y: cy1 },
+                { x: cx2, y: cy2 },
+                radius,
+            );
+
+            this.#setBoundsFromPoints(points);
+            this.#setCurrentPoint(currentPoint.x, currentPoint.y, false);
+
+            return this;
+        }
+
+        /**
+         * Add a curve vertex.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} radius The arc radius.
+         * @return {Path} The Path.
+         */
+        curveVertex(cx1, cy1, cx2, cy2, radius) {
+            const start = this.#hasVertex ?
+                { x: this.#currentX, y: this.#currentY } :
+                { x: cx1, y: cy1 };
+
+            this.#path.arcTo(cx1, cy1, cx2, cy2, radius);
+
+            const { currentPoint, points } = getArcToBounds(
+                start,
+                { x: cx1, y: cy1 },
+                { x: cx2, y: cy2 },
+                radius,
+            );
+
+            this.#setBoundsFromPoints(points);
+            this.#setCurrentPoint(currentPoint.x, currentPoint.y);
+
+            return this;
+        }
+
+        /**
+         * Add an ellipse.
+         * @param {number} x The X position of the ellipse center.
+         * @param {number} y The Y position of the ellipse center.
+         * @param {number} width The ellipse width.
+         * @param {number} height The ellipse height.
+         * @param {number} [angle=0] The ellipse angle.
+         * @return {Path} The Path.
+         */
+        ellipse(x, y, width, height, angle = 0) {
+            const xRadius = width / 2;
+            const yRadius = height / 2;
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            const xExtent = Math.hypot(xRadius * cos, yRadius * sin);
+            const yExtent = Math.hypot(xRadius * sin, yRadius * cos);
+
+            this.#path.ellipse(x, y, xRadius, yRadius, angle, 0, Math.PI * 2);
+
+            this.#setBounds([x - xExtent, x + xExtent], [y - yExtent, y + yExtent]);
+            this.#setCurrentPoint(x + xRadius * cos, y + xRadius * sin);
+
+            return this;
         }
 
         /**
@@ -41,16 +609,112 @@
          * @return {object} The bounding box.
          */
         getBoundingBox() {
+            if (
+                !Number.isFinite(this.#bounding.top) ||
+                !Number.isFinite(this.#bounding.right) ||
+                !Number.isFinite(this.#bounding.bottom) ||
+                !Number.isFinite(this.#bounding.left)
+            ) {
+                return emptyBounds();
+            }
+
             return {
-                top: this._bounding.top,
-                right: this._bounding.right,
-                bottom: this._bounding.bottom,
-                left: this._bounding.left,
-                x: this._bounding.left,
-                y: this._bounding.top,
-                width: this._bounding.right - this._bounding.left,
-                height: this._bounding.bottom - this._bounding.top,
+                top: this.#bounding.top,
+                right: this.#bounding.right,
+                bottom: this.#bounding.bottom,
+                left: this.#bounding.left,
+                x: this.#bounding.left,
+                y: this.#bounding.top,
+                width: this.#bounding.right - this.#bounding.left,
+                height: this.#bounding.bottom - this.#bounding.top,
             };
+        }
+
+        /**
+         * Add a line.
+         * @param {number} x1 The start X position.
+         * @param {number} y1 The start Y position.
+         * @param {number} x2 The end X position.
+         * @param {number} y2 The end Y position.
+         * @return {Path} The Path.
+         */
+        line(x1, y1, x2, y2) {
+            this.#moveTo(x1, y1);
+            this.#path.lineTo(x2, y2);
+
+            this.#setBounds([x1, x2], [y1, y2]);
+            this.#setCurrentPoint(x2, y2, false);
+
+            return this;
+        }
+
+        /**
+         * Add a quadrilateral.
+         * @param {number} x1 The first point X position.
+         * @param {number} y1 The first point Y position.
+         * @param {number} x2 The second point X position.
+         * @param {number} y2 The second point Y position.
+         * @param {number} x3 The third point X position.
+         * @param {number} y3 The third point Y position.
+         * @param {number} x4 The fourth point X position.
+         * @param {number} y4 The fourth point Y position.
+         * @return {Path} The Path.
+         */
+        quad(x1, y1, x2, y2, x3, y3, x4, y4) {
+            this.#moveTo(x1, y1);
+            this.#path.lineTo(x2, y2);
+            this.#path.lineTo(x3, y3);
+            this.#path.lineTo(x4, y4);
+            this.#path.closePath();
+
+            this.#setBounds([x1, x2, x3, x4], [y1, y2, y3, y4]);
+            this.#currentX = x1;
+            this.#currentY = y1;
+
+            return this;
+        }
+
+        /**
+         * Add a quadratic vertex.
+         * @param {number} cx The control point X position.
+         * @param {number} cy The control point Y position.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {Path} The Path.
+         */
+        quadraticVertex(cx, cy, x, y) {
+            const startX = this.#currentX ?? cx;
+            const startY = this.#currentY ?? cy;
+
+            this.#path.quadraticCurveTo(cx, cy, x, y);
+            this.#setBoundsFromPoints(
+                this.#hasVertex ?
+                    getQuadraticBoundsPoints(startX, startY, cx, cy, x, y) :
+                    [
+                        { x: cx, y: cy },
+                        { x, y },
+                    ],
+            );
+            this.#setCurrentPoint(x, y);
+
+            return this;
+        }
+
+        /**
+         * Add a rectangle.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @param {number} width The rectangle width.
+         * @param {number} height The rectangle height.
+         * @return {Path} The Path.
+         */
+        rect(x, y, width, height) {
+            this.#path.rect(x, y, width, height);
+
+            this.#setBounds([x, x + width], [y, y + height]);
+            this.#setCurrentPoint(x, y, true);
+
+            return this;
         }
 
         /**
@@ -59,69 +723,172 @@
          * @return {HTMLCanvasElement} The rendered canvas.
          */
         render(options = {}) {
-            let { width, height, x, y } = this.getBoundingBox();
-
-            const lineWidth = Math.max(options.lineWidth, 0);
-
-            if (lineWidth) {
-                width += lineWidth * 2;
-                height += lineWidth * 2;
-                x -= lineWidth;
-                y -= lineWidth;
-            }
-
+            const bounds = this.getBoundingBox();
+            const renderBounds = getRenderBounds(bounds, options);
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
 
-            canvas.setAttribute('width', width);
-            canvas.setAttribute('height', height);
+            if (!context) {
+                throw new Error('Unable to create a 2D canvas context.');
+            }
 
-            Object.assign(context, options);
+            canvas.setAttribute('width', renderBounds.width);
+            canvas.setAttribute('height', renderBounds.height);
 
-            context.translate(-x, -y);
+            applyStyles(context, options);
+            context.translate(-renderBounds.x, -renderBounds.y);
 
             if (options.fillStyle) {
-                context.fill(this._path);
+                context.fill(this.#path);
             }
 
             if (options.strokeStyle) {
-                context.stroke(this._path);
+                context.stroke(this.#path);
             }
 
             return canvas;
         }
 
         /**
-         * Set the path bounds.
-         * @param {Array} xs The X co-ordinates.
-         * @param {Array} ys The Y co-ordinates.
+         * Add a square.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @param {number} size The square size.
+         * @return {Path} The Path.
          */
-        _setBounds(xs, ys) {
-            this._bounding.top = Math.min(this._bounding.top, ...ys);
-            this._bounding.right = Math.max(this._bounding.right, ...xs);
-            this._bounding.bottom = Math.max(this._bounding.bottom, ...ys);
-            this._bounding.left = Math.min(this._bounding.left, ...xs);
-        }
-    }
-
-    /**
-     * Parse a Vector or X/Y co-ordinates.
-     * @param {Vector|number} x A Vector, or the X position.
-     * @param {number} [y] The Y position.
-     * @return {Vector} The new Vector.
-     */
-    function parseVector(x, y) {
-        if (x instanceof Vector) {
-            return x;
+        square(x, y, size) {
+            return this.rect(x, y, size, size);
         }
 
-        return new Vector(x, y);
+        /**
+         * Add a triangle.
+         * @param {number} x1 The first X position.
+         * @param {number} y1 The first Y position.
+         * @param {number} x2 The second X position.
+         * @param {number} y2 The second Y position.
+         * @param {number} x3 The third X position.
+         * @param {number} y3 The third Y position.
+         * @return {Path} The Path.
+         */
+        triangle(x1, y1, x2, y2, x3, y3) {
+            this.#moveTo(x1, y1);
+            this.#path.lineTo(x2, y2);
+            this.#path.lineTo(x3, y3);
+            this.#path.closePath();
+
+            this.#setBounds([x1, x2, x3], [y1, y2, y3]);
+            this.#currentX = x1;
+            this.#currentY = y1;
+
+            return this;
+        }
+
+        /**
+         * Add a vertex.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {Path} The Path.
+         */
+        vertex(x, y) {
+            if (!this.#hasVertex) {
+                this.#moveTo(x, y);
+            } else {
+                this.#path.lineTo(x, y);
+                this.#setCurrentPoint(x, y, false);
+            }
+
+            this.#setBounds([x], [y]);
+
+            return this;
+        }
+
+        /**
+         * Move to a new subpath start.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         */
+        #moveTo(x, y) {
+            this.#path.moveTo(x, y);
+            this.#setCurrentPoint(x, y, true);
+        }
+
+        /**
+         * Set the path bounds.
+         * @param {number[]} xs The X co-ordinates.
+         * @param {number[]} ys The Y co-ordinates.
+         */
+        #setBounds(xs, ys) {
+            this.#bounding.top = Math.min(this.#bounding.top, ...ys);
+            this.#bounding.right = Math.max(this.#bounding.right, ...xs);
+            this.#bounding.bottom = Math.max(this.#bounding.bottom, ...ys);
+            this.#bounding.left = Math.min(this.#bounding.left, ...xs);
+        }
+
+        /**
+         * Set the path bounds from points.
+         * @param {{x: number, y: number}[]} points The points to include.
+         */
+        #setBoundsFromPoints(points) {
+            this.#setBounds(
+                points.map((point) => point.x),
+                points.map((point) => point.y),
+            );
+        }
+
+        /**
+         * Set the current point.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @param {boolean} [resetSubpath=false] Whether to reset the subpath start.
+         */
+        #setCurrentPoint(x, y, resetSubpath = false) {
+            this.#currentX = x;
+            this.#currentY = y;
+            this.#hasVertex = true;
+
+            if (resetSubpath || this.#subpathStartX === null || this.#subpathStartY === null) {
+                this.#subpathStartX = x;
+                this.#subpathStartY = y;
+            }
+        }
     }
 
     /**
      * Vector
      */
     class Vector {
+        /**
+         * Create a new Vector.
+         * @param {number} [x=0] The X position.
+         * @param {number} [y=0] The Y position.
+         * @return {Vector} A new Vector object.
+         */
+        static create(x = 0, y = 0) {
+            return new this(x, y);
+        }
+
+        /**
+         * Parse a Vector or X/Y co-ordinates.
+         * @param {Vector|number} x A Vector, or the X position.
+         * @param {number} [y] The Y position.
+         * @return {Vector} The parsed Vector.
+         */
+        static parse(x = 0, y = 0) {
+            if (x instanceof Vector) {
+                return x;
+            }
+
+            return new this(x, y);
+        }
+
+        /**
+         * Create a random Vector.
+         * @return {Vector} A new Vector object.
+         */
+        static random() {
+            return new this(Math.random(), Math.random());
+        }
+
         /**
          * New Vector constructor.
          * @param {number} [x=0] The X position.
@@ -130,7 +897,7 @@
         constructor(x = 0, y = 0) {
             this.x = x;
             this.y = y;
-        }
+        };
 
         /**
          * Add another Vector to the Vector.
@@ -139,7 +906,7 @@
          * @return {Vector} The Vector.
          */
         add(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
             this.x += other.x;
             this.y += other.y;
@@ -154,10 +921,10 @@
          * @return {number} The angle to the other Vector.
          */
         angleTo(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
             return other.getHeading() - this.getHeading();
-        };
+        }
 
         /**
          * Clone the Vector.
@@ -174,7 +941,7 @@
          * @return {number} The distance to the other Vector.
          */
         distTo(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
             return Math.hypot(other.x - this.x, other.y - this.y);
         }
@@ -186,7 +953,7 @@
          * @return {Vector} The Vector.
          */
         div(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
             this.x /= other.x;
             this.y /= other.y;
@@ -195,18 +962,15 @@
         }
 
         /**
-         * Perform a dot product multiplication of the Vector with another.
+         * Calculate the dot product of the Vector with another.
          * @param {Vector|number} x The other Vector, or the X position.
          * @param {number} [y] The Y position.
-         * @return {Vector} The Vector.
+         * @return {number} The dot product.
          */
         dot(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
-            this.x *= other.y;
-            this.y *= other.x;
-
-            return this;
+            return this.x * other.x + this.y * other.y;
         }
 
         /**
@@ -245,7 +1009,7 @@
          * @return {Vector} The Vector.
          */
         mult(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
             this.x *= other.x;
             this.y *= other.y;
@@ -312,30 +1076,12 @@
          * @return {Vector} The Vector.
          */
         sub(x, y) {
-            const other = parseVector(x, y);
+            const other = this.constructor.parse(x, y);
 
             this.x -= other.x;
             this.y -= other.y;
 
             return this;
-        }
-
-        /**
-         * Create a new Vector.
-         * @param {number} [x=0] The X position.
-         * @param {number} [y=0] The Y position.
-         * @return {Vector} A new Vector object.
-         */
-        static create(x = 0, y = 0) {
-            return new this(x, y);
-        }
-
-        /**
-         * Create a random Vector.
-         * @return {Vector} A new Vector object.
-         */
-        static random() {
-            return new this(Math.random(), Math.random());
         }
     }
 
@@ -343,6 +1089,9 @@
      * Shape
      */
     class Shape {
+        #context;
+        #layers;
+
         /**
          * New Shape constructor.
          * @param {CanvasRenderingContext2D} context The canvas context.
@@ -353,7 +1102,7 @@
          * @param {number} [anchorY=0] The anchor Y position.
          */
         constructor(context, x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0) {
-            this._context = context;
+            this.#context = context;
 
             this.x = x;
             this.y = y;
@@ -361,7 +1110,7 @@
             this.anchorX = anchorX;
             this.anchorY = anchorY;
 
-            this.layers = [];
+            this.#layers = [];
         }
 
         /**
@@ -380,7 +1129,7 @@
 
             let pointInShape = false;
 
-            for (const { contour, path } of this.layers) {
+            for (const { contour, path } of this.#layers) {
                 if (
                     (pointInShape && !contour) ||
                     (!pointInShape && contour) ||
@@ -397,7 +1146,7 @@
 
         /**
          * Add a contour to the shape.
-         * @param {callback} callback The callback to generate the path.
+         * @param {(path: Path) => void} callback The callback to generate the path.
          * @return {Shape} The Shape.
          */
         contour(callback) {
@@ -416,21 +1165,30 @@
                 left: Number.POSITIVE_INFINITY,
             };
 
-            for (const layer of this.layers) {
+            for (const layer of this.#layers) {
                 if (layer.contour) {
                     continue;
                 }
 
                 const bounds = layer.path.getBoundingBox();
-                const rotated1 = this._rotatePoint(bounds.right, bounds.top);
-                const rotated2 = this._rotatePoint(bounds.right, bounds.bottom);
-                const rotated3 = this._rotatePoint(bounds.left, bounds.bottom);
-                const rotated4 = this._rotatePoint(bounds.left, bounds.top);
+                const rotated1 = this.#rotatePoint(bounds.right, bounds.top);
+                const rotated2 = this.#rotatePoint(bounds.right, bounds.bottom);
+                const rotated3 = this.#rotatePoint(bounds.left, bounds.bottom);
+                const rotated4 = this.#rotatePoint(bounds.left, bounds.top);
 
                 bounding.top = Math.min(bounding.top, rotated1.y, rotated2.y, rotated3.y, rotated4.y);
                 bounding.right = Math.max(bounding.right, rotated1.x, rotated2.x, rotated3.x, rotated4.x);
                 bounding.bottom = Math.max(bounding.bottom, rotated1.y, rotated2.y, rotated3.y, rotated4.y);
                 bounding.left = Math.min(bounding.left, rotated1.x, rotated2.x, rotated3.x, rotated4.x);
+            }
+
+            if (
+                !Number.isFinite(bounding.top) ||
+                !Number.isFinite(bounding.right) ||
+                !Number.isFinite(bounding.bottom) ||
+                !Number.isFinite(bounding.left)
+            ) {
+                return emptyBounds();
             }
 
             return {
@@ -447,15 +1205,15 @@
 
         /**
          * Add a layer to the shape.
-         * @param {callback} callback The callback to generate the path.
+         * @param {(path: Path) => void} callback The callback to generate the path.
          * @param {Boolean} [contour=false] Whether the path is contoured.
          * @return {Shape} The Shape.
          */
         layer(callback, contour = false) {
-            const path = new Path(this._context);
+            const path = new Path(this.#context);
             callback(path);
 
-            this.layers.push({
+            this.#layers.push({
                 contour,
                 path,
             });
@@ -471,34 +1229,30 @@
         render(options = {}) {
             const canvas = document.createElement('canvas');
 
-            if (!this.layers.length) {
+            if (!this.#layers.length) {
+                canvas.setAttribute('width', 0);
+                canvas.setAttribute('height', 0);
+
                 return canvas;
             }
 
-            let { width, height, x, y } = this.getBoundingBox();
-
-            const lineWidth = Math.max(options.lineWidth, 0);
-
-            if (lineWidth) {
-                width += lineWidth * 2;
-                height += lineWidth * 2;
-                x -= lineWidth;
-                y -= lineWidth;
-            }
+            const renderBounds = getRenderBounds(this.getBoundingBox(), options);
 
             const context = canvas.getContext('2d');
 
-            canvas.setAttribute('width', width);
-            canvas.setAttribute('height', height);
+            if (!context) {
+                throw new Error('Unable to create a 2D canvas context.');
+            }
 
-            context.translate(this.x - x, this.y - y);
+            canvas.setAttribute('width', renderBounds.width);
+            canvas.setAttribute('height', renderBounds.height);
+
+            context.translate(this.x - renderBounds.x, this.y - renderBounds.y);
             context.translate(this.anchorX, this.anchorY);
             context.rotate(this.angle);
             context.translate(-this.anchorX, -this.anchorY);
 
-            for (const { contour, path } of this.layers) {
-                let { x: layerX, y: layerY } = path.getBoundingBox();
-
+            for (const { contour, path } of this.#layers) {
                 let layerOptions;
                 if (contour) {
                     context.globalCompositeOperation = 'destination-out';
@@ -509,16 +1263,13 @@
                 } else {
                     context.globalCompositeOperation = 'source-over';
                     layerOptions = options;
-
-                    if (lineWidth) {
-                        layerX -= lineWidth;
-                        layerY -= lineWidth;
-                    }
                 }
+
+                const layerBounds = getRenderBounds(path.getBoundingBox(), layerOptions);
 
                 const layerCanvas = path.render(layerOptions);
 
-                context.drawImage(layerCanvas, layerX, layerY);
+                context.drawImage(layerCanvas, layerBounds.x, layerBounds.y);
             }
 
             return canvas;
@@ -530,13 +1281,16 @@
          * @param {number} y The Y position.
          * @return {Vector} The rotated Vector.
          */
-        _rotatePoint(x, y) {
-            const anchor = Vector.create(this.anchorX, this.anchorY);
+        #rotatePoint(x, y) {
+            const translatedX = x - this.anchorX;
+            const translatedY = y - this.anchorY;
+            const cos = Math.cos(this.angle);
+            const sin = Math.sin(this.angle);
 
-            return Vector.create(x, y)
-                .sub(anchor)
-                .rotate(this.angle)
-                .add(anchor);
+            return Vector.create(
+                translatedX * cos - translatedY * sin + this.anchorX,
+                translatedX * sin + translatedY * cos + this.anchorY,
+            );
         }
     }
 
@@ -544,6 +1298,12 @@
      * CanvasContext
      */
     class CanvasContext {
+        #context;
+        #hasVertex;
+        #node;
+        #options;
+        #states;
+
         /**
          * New CanvasContext constructor.
          * @param {HTMLCanvasElement} node The canvas node.
@@ -552,16 +1312,20 @@
          * @param {object} [options] The canvas options.
          */
         constructor(node, width = 600, height = 400, options = {}) {
-            this._node = node;
-            this._context = this._node.getContext('2d');
+            this.#node = node;
+            this.#context = node?.getContext?.('2d');
 
-            this._options = {
+            if (!this.#context) {
+                throw new TypeError('CanvasContext requires a 2D canvas context.');
+            }
+
+            this.#options = {
                 ...this.constructor.defaults,
-                options,
+                ...options,
             };
 
-            this._states = [];
-            this._hasVertex = false;
+            this.#states = [];
+            this.#hasVertex = false;
 
             this.resize(width, height);
         }
@@ -577,9 +1341,26 @@
          * @return {CanvasContext} The CanvasContext.
          */
         applyMatrix(a, b, c, d, e, f) {
-            this._context.transform(a, b, c, d, e, f);
+            this.#context.transform(a, b, c, d, e, f);
 
             return this;
+        }
+
+        /**
+         * Draw an arc.
+         * @param {number} x The X position of the arc center.
+         * @param {number} y The Y position of the arc center.
+         * @param {number} radius The arc radius.
+         * @param {number} startAngle The arc start angle.
+         * @param {number} endAngle The arc end angle.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        arc(x, y, radius, startAngle, endAngle) {
+            this.begin();
+
+            this.#context.arc(x, y, radius, startAngle, endAngle);
+
+            return this.end();
         }
 
         /**
@@ -589,6 +1370,7 @@
          */
         background(color) {
             return this.push()
+                .resetMatrix()
                 .noStroke()
                 .fill(color)
                 .rect(0, 0, this.width, this.height)
@@ -596,13 +1378,80 @@
         }
 
         /**
+         * Begin a path.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        begin() {
+            this.#context.beginPath();
+            this.#hasVertex = false;
+
+            return this;
+        }
+
+        /**
+         * Draw a bezier curve.
+         * @param {number} x1 The start X position.
+         * @param {number} y1 The start Y position.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} x2 The end X position.
+         * @param {number} y2 The end Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
+            return this.begin()
+                .vertex(x1, y1)
+                .bezierVertex(cx1, cy1, cx2, cy2, x2, y2)
+                .end();
+        }
+
+        /**
+         * Add a bezier vertex.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        bezierVertex(cx1, cy1, cx2, cy2, x, y) {
+            this.#context.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
+
+            return this;
+        }
+
+        /**
+         * Draw a circle.
+         * @param {number} x The X position of the circle center.
+         * @param {number} y The Y position of the circle center.
+         * @param {number} radius The circle radius.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        circle(x, y, radius) {
+            return this.ellipse(x, y, radius * 2, radius * 2);
+        }
+
+        /**
          * Clear the entire canvas.
          * @return {CanvasContext} The CanvasContext.
          */
         clear() {
-            this._context.clearRect(0, 0, this.width, this.height);
+            this.push();
+            this.resetMatrix();
+            this.#context.clearRect(0, 0, this.width, this.height);
 
-            return this;
+            return this.pop();
+        }
+
+        /**
+         * Create a new Path.
+         * @return {Path} The Path.
+         */
+        createPath() {
+            return new Path(this.#context);
         }
 
         /**
@@ -615,15 +1464,40 @@
          * @return {Shape} The Shape.
          */
         createShape(x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0) {
-            return new Shape(this._context, x, y, angle, anchorX, anchorY);
+            return new Shape(this.#context, x, y, angle, anchorX, anchorY);
         }
 
         /**
-         * Create a new Path.
-         * @return {Path} The Path.
+         * Draw a curve.
+         * @param {number} x1 The start X position.
+         * @param {number} y1 The start Y position.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} radius The arc radius.
+         * @return {CanvasContext} The CanvasContext.
          */
-        createPath() {
-            return new Path(this._context);
+        curve(x1, y1, cx1, cy1, cx2, cy2, radius) {
+            return this.begin()
+                .vertex(x1, y1)
+                .curveVertex(cx1, cy1, cx2, cy2, radius)
+                .end();
+        }
+
+        /**
+         * Add a curve vertex.
+         * @param {number} cx1 The first control point X position.
+         * @param {number} cy1 The first control point Y position.
+         * @param {number} cx2 The second control point X position.
+         * @param {number} cy2 The second control point Y position.
+         * @param {number} radius The arc radius.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        curveVertex(cx1, cy1, cx2, cy2, radius) {
+            this.#context.arcTo(cx1, cy1, cx2, cy2, radius);
+
+            return this;
         }
 
         /**
@@ -634,7 +1508,7 @@
          * @return {CanvasContext} The CanvasContext.
          */
         drawImage(image, x = 0, y = 0) {
-            this._context.drawImage(image, x, y);
+            this.#context.drawImage(image, x, y);
 
             return this;
         }
@@ -647,8 +1521,8 @@
          * @return {CanvasContext} The CanvasContext.
          */
         drawPath(path, x = 0, y = 0) {
-            const bounds = path.getBoundingBox();
-            const canvas = path.render(this._options);
+            const bounds = getRenderBounds(path.getBoundingBox(), this.#options);
+            const canvas = path.render(this.#options);
 
             return this.drawImage(canvas, bounds.x + x, bounds.y + y);
         }
@@ -661,23 +1535,48 @@
          * @return {CanvasContext} The CanvasContext.
          */
         drawShape(shape, x = 0, y = 0) {
-            let { x: shapeX, y: shapeY } = shape.getBoundingBox();
+            const bounds = getRenderBounds(shape.getBoundingBox(), this.#options);
 
-            const lineWidth = Math.max(this._options.lineWidth, 0);
+            const canvas = shape.render(this.#options);
 
-            if (lineWidth) {
-                shapeX -= lineWidth;
-                shapeY -= lineWidth;
+            return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+        }
+
+        /**
+         * Draw an ellipse.
+         * @param {number} x The X position of the ellipse center.
+         * @param {number} y The Y position of the ellipse center.
+         * @param {number} width The ellipse width.
+         * @param {number} height The ellipse height.
+         * @param {number} [angle=0] The ellipse angle.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        ellipse(x, y, width, height, angle = 0) {
+            this.begin();
+
+            this.#context.ellipse(x, y, width / 2, height / 2, angle, 0, Math.PI * 2);
+
+            return this.end();
+        }
+
+        /**
+         * End and draw the path.
+         * @param {Boolean} [close=false] Whether to close the path.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        end(close = false) {
+            if (close) {
+                this.#context.closePath();
             }
 
-            const canvas = shape.render(this._options);
+            this.#draw();
 
-            return this.drawImage(canvas, shapeX + x, shapeY + y);
+            return this;
         }
 
         /**
          * Erase a path from the Canvas.
-         * @param {callback} callback The callback to generate the path.
+         * @param {(path: Path) => void} callback The callback to generate the path.
          * @return {CanvasContext} The CanvasContext.
          */
         erase(callback) {
@@ -686,13 +1585,58 @@
 
             this.push();
 
-            this._context.globalCompositeOperation = 'destination-out';
+            this.#context.globalCompositeOperation = 'destination-out';
+            this.noStroke();
+            this.noShadow();
+            this.fill('#000');
+            this.#applyStyles();
+            this.drawPath(path);
 
-            return this
-                .reset()
-                .fill('#000')
-                .drawPath(path)
-                .pop();
+            return this.pop();
+        }
+
+        /**
+         * Set the fill color/style.
+         * @param {string|CanvasGradient} color The color/gradient.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        fill(color) {
+            this.#options.fillStyle = color;
+
+            return this;
+        }
+
+        /**
+         * Set the font family.
+         * @param {string} font The font family.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        font(font) {
+            this.#options.font = font;
+
+            return this;
+        }
+
+        /**
+         * Set the font size.
+         * @param {number} size The font size.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        fontSize(size) {
+            this.#options.fontSize = size;
+
+            return this;
+        }
+
+        /**
+         * Set the font weight.
+         * @param {string|number} weight The font weight.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        fontWeight(weight) {
+            this.#options.fontWeight = weight;
+
+            return this;
         }
 
         /**
@@ -704,7 +1648,91 @@
          * @return {ImageData} The image data.
          */
         getImage(sx, sy, sw, sh) {
-            return this._context.getImageData(sx, sy, sw, sh);
+            return this.#context.getImageData(sx, sy, sw, sh);
+        }
+
+        /**
+         * Get the active canvas options.
+         * @return {object} The active options.
+         */
+        getOptions() {
+            return {
+                ...this.#options,
+            };
+        }
+
+        /**
+         * Draw a line.
+         * @param {number} x1 The start X position.
+         * @param {number} y1 The start Y position.
+         * @param {number} x2 The end X position.
+         * @param {number} y2 The end Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        line(x1, y1, x2, y2) {
+            return this.begin()
+                .vertex(x1, y1)
+                .vertex(x2, y2)
+                .end();
+        }
+
+        /**
+         * Create a linear gradient.
+         * @param {number} x1 The starting X position.
+         * @param {number} y1 The starting Y position.
+         * @param {number} x2 The ending X position.
+         * @param {number} y2 The ending Y position.
+         * @return {CanvasGradient} The CanvasGradient.
+         */
+        linearGradient(x1, y1, x2, y2) {
+            return this.#context.createLinearGradient(x1, y1, x2, y2);
+        }
+
+        /**
+         * Remove the fill color/style.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        noFill() {
+            this.#options.fillStyle = null;
+
+            return this;
+        }
+
+        /**
+         * Remove the shadow.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        noShadow() {
+            this.#options.shadowColor = 'rgba(0,0,0,0)';
+
+            return this;
+        }
+
+        /**
+         * Remove the stroke.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        noStroke() {
+            this.#options.strokeStyle = null;
+
+            return this;
+        }
+
+        /**
+         * Draw a point.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        point(x, y) {
+            const { lineWidth, strokeStyle } = this.#options;
+            const radius = Math.max(lineWidth, 1) / 2;
+
+            return this.push()
+                .noStroke()
+                .fill(strokeStyle)
+                .circle(x, y, radius)
+                .pop();
         }
 
         /**
@@ -712,9 +1740,9 @@
          * @return {CanvasContext} The CanvasContext.
          */
         pop() {
-            if (this._states.length) {
-                this._options = this._states.pop();
-                this._context.restore();
+            if (this.#states.length) {
+                this.#options = this.#states.pop();
+                this.#context.restore();
             }
 
             return this;
@@ -725,8 +1753,8 @@
          * @return {CanvasContext} The CanvasContext.
          */
         push() {
-            this._states.push({ ...this._options });
-            this._context.save();
+            this.#states.push({ ...this.#options });
+            this.#context.save();
 
             return this;
         }
@@ -744,12 +1772,77 @@
          */
         putImage(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) {
             if (arguments.length > 3) {
-                this._context.putImageData(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
+                this.#context.putImageData(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
             } else {
-                this._context.putImageData(image, dx, dy);
+                this.#context.putImageData(image, dx, dy);
             }
 
             return this;
+        }
+
+        /**
+         * Draw a quadrilateral.
+         * @param {number} x1 The first point X position.
+         * @param {number} y1 The first point Y position.
+         * @param {number} x2 The second point X position.
+         * @param {number} y2 The second point Y position.
+         * @param {number} x3 The third point X position.
+         * @param {number} y3 The third point Y position.
+         * @param {number} x4 The fourth point X position.
+         * @param {number} y4 The fourth point Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        quad(x1, y1, x2, y2, x3, y3, x4, y4) {
+            return this.begin()
+                .vertex(x1, y1)
+                .vertex(x2, y2)
+                .vertex(x3, y3)
+                .vertex(x4, y4)
+                .end(true);
+        }
+
+        /**
+         * Add a quadratic vertex.
+         * @param {number} cx The control point X position.
+         * @param {number} cy The control point Y position.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        quadraticVertex(cx, cy, x, y) {
+            this.#context.quadraticCurveTo(cx, cy, x, y);
+
+            return this;
+        }
+
+        /**
+         * Create a radial gradient.
+         * @param {number} x1 The starting X position.
+         * @param {number} y1 The starting Y position.
+         * @param {number} r1 The starting radius.
+         * @param {number} x2 The ending X position.
+         * @param {number} y2 The ending Y position.
+         * @param {number} r2 The ending radius.
+         * @return {CanvasGradient} The CanvasGradient.
+         */
+        radialGradient(x1, y1, r1, x2, y2, r2) {
+            return this.#context.createRadialGradient(x1, y1, r1, x2, y2, r2);
+        }
+
+        /**
+         * Draw a rectangle.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @param {number} width The rectangle width.
+         * @param {number} height The rectangle height.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        rect(x, y, width, height) {
+            this.begin();
+
+            this.#context.rect(x, y, width, height);
+
+            return this.end();
         }
 
         /**
@@ -757,7 +1850,9 @@
          * @return {CanvasContext} The CanvasContext.
          */
         reset() {
-            this._options = this.constructor.defaults;
+            this.#options = {
+                ...this.constructor.defaults,
+            };
 
             return this.resetMatrix();
         }
@@ -767,7 +1862,7 @@
          * @return {CanvasContext} The CanvasContext.
          */
         resetMatrix() {
-            this._context.resetTransform();
+            this.#context.resetTransform();
 
             return this;
         }
@@ -779,10 +1874,19 @@
          * @return {CanvasContext} The CanvasContext.
          */
         resize(w, h) {
+            if (![w, h].every((value) => Number.isFinite(value) && value >= 0)) {
+                throw new RangeError('Canvas dimensions must be finite, non-negative numbers.');
+            }
+
             this.width = w;
             this.height = h;
-            this._node.setAttribute('width', this.width);
-            this._node.setAttribute('height', this.height);
+            this.#node.setAttribute('width', this.width);
+            this.#node.setAttribute('height', this.height);
+            this.#states = [];
+            this.#hasVertex = false;
+            this.#applyStyles();
+            this.#context.textAlign = this.#options.textAlign;
+            this.#context.textBaseline = this.#options.textBaseline;
 
             return this;
         }
@@ -793,7 +1897,7 @@
          * @return {CanvasContext} The CanvasContext.
          */
         rotate(angle) {
-            this._context.rotate(angle);
+            this.#context.rotate(angle);
 
             return this;
         }
@@ -804,12 +1908,132 @@
          * @param {number} [y] The vertical scaling.
          * @return {CanvasContext} The CanvasContext.
          */
-        scale(x, y = null) {
-            if (y === undefined) {
-                y = x;
+        scale(x, y = x) {
+            this.#context.scale(x, y);
+
+            return this;
+        }
+
+        /**
+         * Set the shadow color.
+         * @param {string|CanvasGradient} color The color.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        shadow(color) {
+            this.#options.shadowColor = color;
+
+            return this;
+        }
+
+        /**
+         * Set the shadow blur amount.
+         * @param {number} amount The blur amount.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        shadowBlur(amount) {
+            this.#options.shadowBlur = amount;
+
+            return this;
+        }
+
+        /**
+         * Set the shadow x/y offset.
+         * @param {number} [x=0] The X offset.
+         * @param {number} [y=0] The Y offset.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        shadowOffset(x = 0, y = 0) {
+            this.#options.shadowOffsetX = x;
+            this.#options.shadowOffsetY = y;
+
+            return this;
+        }
+
+        /**
+         * Draw a square.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @param {number} size The square size.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        square(x, y, size) {
+            return this.rect(x, y, size, size);
+        }
+
+        /**
+         * Set the stroke color/style.
+         * @param {string|CanvasGradient} color The color/gradient.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        stroke(color) {
+            this.#options.strokeStyle = color;
+
+            return this;
+        }
+
+        /**
+         * Set the stroke width.
+         * @param {number} width The width.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        strokeWidth(width) {
+            this.#options.lineWidth = width;
+
+            return this;
+        }
+
+        /**
+         * Draw text to the canvas.
+         * @param {string} text The text to draw.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        text(text, x, y) {
+            this.#applyStyles();
+
+            const font = [];
+
+            if (this.#options.fontWeight) {
+                font.push(this.#options.fontWeight);
             }
 
-            this._context.scale(x, y);
+            font.push(`${this.#options.fontSize}px`);
+            font.push(this.#options.font);
+
+            this.#context.font = font.join(' ');
+            this.#context.textAlign = this.#options.textAlign;
+            this.#context.textBaseline = this.#options.textBaseline;
+
+            if (this.#options.fillStyle) {
+                this.#context.fillText(text, x, y);
+            }
+
+            if (this.#options.strokeStyle) {
+                this.#context.strokeText(text, x, y);
+            }
+
+            return this;
+        }
+
+        /**
+         * Set the text alignment.
+         * @param {string} alignment The text alignment.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        textAlign(alignment) {
+            this.#options.textAlign = alignment;
+
+            return this;
+        }
+
+        /**
+         * Set the text baseline.
+         * @param {string} baseline The text baseline.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        textBaseline(baseline) {
+            this.#options.textBaseline = baseline;
 
             return this;
         }
@@ -821,55 +2045,221 @@
          * @return {CanvasContext} The CanvasContext.
          */
         translate(x, y) {
-            this._context.translate(x, y);
+            this.#context.translate(x, y);
 
             return this;
         }
+
+        /**
+         * Draw a triangle.
+         * @param {number} x1 The first X position.
+         * @param {number} y1 The first Y position.
+         * @param {number} x2 The second X position.
+         * @param {number} y2 The second Y position.
+         * @param {number} x3 The third X position.
+         * @param {number} y3 The third Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        triangle(x1, y1, x2, y2, x3, y3) {
+            return this.begin()
+                .vertex(x1, y1)
+                .vertex(x2, y2)
+                .vertex(x3, y3)
+                .end(true);
+        }
+
+        /**
+         * Add a vertex.
+         * @param {number} x The X position.
+         * @param {number} y The Y position.
+         * @return {CanvasContext} The CanvasContext.
+         */
+        vertex(x, y) {
+            if (!this.#hasVertex) {
+                this.#context.moveTo(x, y);
+                this.#hasVertex = true;
+            } else {
+                this.#context.lineTo(x, y);
+            }
+
+            return this;
+        }
+
+        /**
+         * Update the canvas context.
+         */
+        #applyStyles() {
+            applyStyles(this.#context, this.#options);
+        }
+
+        /**
+         * Draw to the canvas.
+         */
+        #draw() {
+            this.#applyStyles();
+
+            if (this.#options.fillStyle) {
+                this.#context.fill();
+            }
+
+            if (this.#options.strokeStyle) {
+                this.#context.stroke();
+            }
+        }
     }
+
+    // CanvasContext default options
+    CanvasContext.defaults = Object.freeze({
+        fillStyle: null,
+        font: 'sans-serif',
+        fontSize: 10,
+        fontWeight: null,
+        lineWidth: 1,
+        shadowBlur: 0,
+        shadowColor: null,
+        shadowOffsetX: 0,
+        shadowOffsetY: 0,
+        strokeStyle: '#000',
+        textAlign: 'start',
+        textBaseline: 'alphabetic',
+    });
 
     /**
      * Canvas
      */
     class Canvas {
+        #cancelAnimationFrame;
+        #destroyed;
+        #eventTarget;
+        #frameId;
+        #keysDown;
+        #listeners;
+        #loop;
+        #mouseDown;
+        #mouseX;
+        #mouseY;
+        #node;
+        #now;
+        #previousTime;
+        #requestAnimationFrame;
+        #startTime;
+
+        /**
+         * Create a new Canvas with a new canvas element.
+         * @param {HTMLElement} [parent] The parent node.
+         * @param {number} [width=600] The canvas width.
+         * @param {number} [height=400] The canvas height.
+         * @param {object} [options] Additional canvas options.
+         * @return {Canvas} A new Canvas object.
+         */
+        static attach(parent = document.body, width = 600, height = 400, options = {}) {
+            const canvas = document.createElement('canvas');
+
+            parent.append(canvas);
+
+            return new this(canvas, width, height, options);
+        }
+
         /**
          * New Canvas constructor.
          * @param {HTMLCanvasElement} node The canvas node.
          * @param {number} [width=600] The canvas width.
          * @param {number} [height=400] The canvas height.
+         * @param {object} [options] Additional canvas options.
+         * @param {object} [options.runtime] Runtime overrides for timing, events, and frame scheduling.
          */
-        constructor(node, width = 600, height = 400) {
-            this._node = node;
+        constructor(node, width = 600, height = 400, options = {}) {
+            if (!node || typeof node.addEventListener !== 'function') {
+                throw new TypeError('Canvas requires a canvas element.');
+            }
 
-            this._loop = true;
-            this._mouseX = null;
-            this._mouseY = null;
-            this._mouseDown = {};
-            this._keysDown = {};
+            const runtime = options.runtime ?? {};
 
-            this.context = new CanvasContext(this._node, width, height);
+            this.#node = node;
 
-            this._node.setAttribute('tabindex', '1');
-            this._node.style.setProperty('outline', '0');
+            this.#destroyed = false;
+            this.#eventTarget = runtime.eventTarget ?? globalThis.window;
+            this.#cancelAnimationFrame = runtime.cancelAnimationFrame ??
+                this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
+            this.#frameId = null;
+            this.#listeners = [];
+            this.#loop = true;
+            this.#mouseX = null;
+            this.#mouseY = null;
+            this.#mouseDown = new Set();
+            this.#keysDown = new Set();
+            this.#now = runtime.now ?? (() => globalThis.performance.now());
+            this.#previousTime = null;
+            this.#requestAnimationFrame = runtime.requestAnimationFrame ??
+                this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
+            this.#startTime = null;
 
-            this._events();
+            this.context = new CanvasContext(this.#node, width, height);
+
+            this.#node.setAttribute('tabindex', '1');
+            this.#node.style.setProperty('outline', '0');
+
+            this.#events();
             this.setup();
 
-            const start = Date.now();
-
-            const run = (_) => {
-                const now = Date.now();
-                const delta = (now - start) / 1000;
-
-                this.update(delta);
-
-                if (!this._loop) {
+            const run = () => {
+                if (this.#destroyed || !this.#loop) {
                     return;
                 }
 
-                window.requestAnimationFrame(run);
+                const now = this.#now();
+
+                if (this.#startTime === null) {
+                    this.#startTime = now;
+                }
+
+                const deltaTime = this.#previousTime === null ?
+                    0 :
+                    (now - this.#previousTime) / 1000;
+                const elapsedTime = (now - this.#startTime) / 1000;
+
+                this.#previousTime = now;
+
+                this.update(deltaTime, elapsedTime);
+
+                if (!this.#loop) {
+                    return;
+                }
+
+                this.#frameId = this.#requestAnimationFrame(() => {
+                    this.#frameId = null;
+                    run();
+                });
             };
 
             run();
+        }
+
+        /**
+         * Stop the loop and remove event listeners.
+         * @return {Canvas} The Canvas.
+         */
+        destroy() {
+            if (this.#destroyed) {
+                return this;
+            }
+
+            this.noLoop();
+            this.#destroyed = true;
+
+            for (const { listener, target, type } of this.#listeners) {
+                if (typeof target.removeEventListener === 'function') {
+                    target.removeEventListener(type, listener);
+                }
+            }
+
+            this.#listeners = [];
+            this.#mouseDown.clear();
+            this.#keysDown.clear();
+            this.#mouseX = null;
+            this.#mouseY = null;
+
+            return this;
         }
 
         /**
@@ -879,8 +2269,8 @@
          */
         isKeyPressed(code) {
             return code ?
-                code in this._keysDown :
-                Object.keys(this._keysDown).length;
+                this.#keysDown.has(code) :
+                this.#keysDown.size > 0;
         }
 
         /**
@@ -889,7 +2279,7 @@
          * @return {Boolean} TRUE if the mouse button is being pressed, otherwise FALSE.
          */
         isMousePressed(button = 0) {
-            return button in this._mouseDown && this._mouseX !== null && this._mouseY !== null;
+            return this.#mouseDown.has(button) && this.#mouseX !== null && this.#mouseY !== null;
         }
 
         /**
@@ -897,80 +2287,86 @@
          * @return {Vector|null} The mouse position.
          */
         mousePos() {
-            if (this._mouseX === null || this._mouseY === null) {
+            if (this.#mouseX === null || this.#mouseY === null) {
                 return null;
             }
 
-            return new Vector(this._mouseX, this._mouseY);
+            return new Vector(this.#mouseX, this.#mouseY);
         }
 
         /**
          * Stop the update method.
          */
         noLoop() {
-            this._loop = false;
+            this.#loop = false;
+
+            if (this.#frameId !== null && typeof this.#cancelAnimationFrame === 'function') {
+                this.#cancelAnimationFrame(this.#frameId);
+            }
+
+            this.#frameId = null;
         }
 
         /**
          * Key down callback.
          */
-        onKeyDown() {
+        onKeyDown(_code, _event) {
 
         }
 
         /**
          * Key press callback.
          */
-        onKeyPress() {
+        onKeyPress(_key, _event) {
 
         }
 
         /**
          * Key up callback.
          */
-        onKeyUp() {
+        onKeyUp(_code, _event) {
 
         }
 
         /**
          * Mouse click callback.
          */
-        onMouseClick() {
+        onMouseClick(_button, _event) {
 
         }
 
         /**
          * Mouse down callback.
          */
-        onMouseDown() {
+        onMouseDown(_button, _event) {
 
         }
 
         /**
          * Mouse enter callback.
          */
-        onMouseEnter() {
+        onMouseEnter(_event) {
 
         }
 
         /**
          * Mouse leave callback.
          */
-        onMouseLeave() {
+        onMouseLeave(_event) {
 
         }
 
         /**
          * Mouse move callback.
          */
-        onMouseMove() {
+        onMouseMove(_x, _y, _event) {
 
         }
 
         /**
          * Mouse up callback.
          */
-        onMouseUp() {
+        onMouseUp(_button, _event) {
 
         }
 
@@ -983,880 +2379,120 @@
 
         /**
          * Update callback.
+         * @param {number} _deltaTime The time elapsed since the previous frame in seconds.
+         * @param {number} _elapsedTime The total time elapsed since the loop started in seconds.
          */
-        update() {
+        update(_deltaTime, _elapsedTime) {
 
+        }
+
+        /**
+         * Add an event listener and track it for cleanup.
+         * @param {EventTarget} target The event target.
+         * @param {string} type The event type.
+         * @param {Function} listener The event listener.
+         */
+        #addEventListener(target, type, listener) {
+            target.addEventListener(type, listener);
+            this.#listeners.push({
+                listener,
+                target,
+                type,
+            });
         }
 
         /**
          * Attach events for the Canvas.
          */
-        _events() {
+        #events() {
             const updateMouse = (e) => {
-                this._mouseX = e.offsetX;
-                this._mouseY = e.offsetY;
+                if (
+                    e.target === this.#node &&
+                    Number.isFinite(e.offsetX) &&
+                    Number.isFinite(e.offsetY)
+                ) {
+                    this.#mouseX = e.offsetX;
+                    this.#mouseY = e.offsetY;
+
+                    return;
+                }
+
+                if (Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
+                    const bounds = this.#node.getBoundingClientRect();
+
+                    this.#mouseX = e.clientX - bounds.left;
+                    this.#mouseY = e.clientY - bounds.top;
+                }
             };
 
-            this._node.addEventListener('mouseenter', (e) => {
+            this.#addEventListener(this.#eventTarget, 'mouseup', (e) => {
+                if (!this.#mouseDown.has(e.button)) {
+                    return;
+                }
+
+                this.#mouseDown.delete(e.button);
+
+                updateMouse(e);
+
+                this.onMouseUp(e.button, e);
+            });
+
+            this.#addEventListener(this.#eventTarget, 'keyup', (e) => {
+                if (!this.#keysDown.has(e.code)) {
+                    return;
+                }
+
+                this.#keysDown.delete(e.code);
+
+                this.onKeyUp(e.code, e);
+            });
+
+            this.#addEventListener(this.#node, 'mouseenter', (e) => {
                 updateMouse(e);
 
                 this.onMouseEnter(e);
             });
 
-            this._node.addEventListener('mouseleave', (e) => {
+            this.#addEventListener(this.#node, 'mouseleave', (e) => {
                 updateMouse(e);
 
                 this.onMouseLeave(e);
 
-                this._mouseX = null;
-                this._mouseY = null;
+                this.#mouseX = null;
+                this.#mouseY = null;
             });
 
-            this._node.addEventListener('mousemove', (e) => {
+            this.#addEventListener(this.#node, 'mousemove', (e) => {
                 updateMouse(e);
 
-                this.onMouseMove(this._mouseX, this._mouseY, e);
+                this.onMouseMove(this.#mouseX, this.#mouseY, e);
             });
 
-            this._node.addEventListener('mousedown', (e) => {
-                this._mouseDown[e.button] = true;
+            this.#addEventListener(this.#node, 'mousedown', (e) => {
+                this.#mouseDown.add(e.button);
 
                 updateMouse(e);
 
                 this.onMouseDown(e.button, e);
-
-                window.addEventListener('mouseup', (e) => {
-                    delete this._mouseDown[e.button];
-
-                    updateMouse(e);
-
-                    this.onMouseUp(e.button, e);
-                }, {
-                    once: true,
-                });
             });
 
-            this._node.addEventListener('click', (e) => {
+            this.#addEventListener(this.#node, 'click', (e) => {
                 updateMouse(e);
 
                 this.onMouseClick(e.button, e);
             });
 
-            this._node.addEventListener('keydown', (e) => {
-                this._keysDown[e.code] = true;
+            this.#addEventListener(this.#node, 'keydown', (e) => {
+                this.#keysDown.add(e.code);
 
                 this.onKeyDown(e.code, e);
 
-                window.addEventListener('keyup', (e) => {
-                    delete this._keysDown[e.code];
-
-                    this.onKeyUp(e.code, e);
-                }, {
-                    once: true,
-                });
-            });
-
-            this._node.addEventListener('keypress', (e) => {
-                this.onKeyPress(e.code, e);
+                if (!e.repeat && typeof e.key === 'string' && e.key.length === 1) {
+                    this.onKeyPress(e.key, e);
+                }
             });
         }
-
-        /**
-         * Create a new Canvas with a new canvas element.
-         * @param {HTMLElement} [parent] The parent node.
-         * @param {number} [width=600] The canvas width.
-         * @param {number} [height=400] The canvas height.
-         * @return {Canvas} A new Canvas object.
-         */
-        static attach(parent = document.body, width = 600, height = 400) {
-            const canvas = document.createElement('canvas');
-
-            parent.append(canvas);
-
-            return new this(canvas, width, height);
-        }
     }
-
-    /**
-     * Set the fill color/style.
-     * @param {string|CanvasGradient} color The color/gradient.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function fill(color) {
-        this._options.fillStyle = color;
-
-        return this;
-    }
-    /**
-     * Set the font family.
-     * @param {string} font The font family.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function font(font) {
-        this._options.font = font;
-
-        return this;
-    }
-    /**
-     * Set the font size.
-     * @param {number} size The font size.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function fontSize(size) {
-        this._options.fontSize = size;
-
-        return this;
-    }
-    /**
-     * Set the font weight.
-     * @param {string|number} weight The font weight.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function fontWeight(weight) {
-        this._options.fontWeight = weight;
-
-        return this;
-    }
-    /**
-     * Remove the fill color/style.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function noFill() {
-        this._options.fillStyle = null;
-
-        return this;
-    }
-    /**
-     * Remove the shadow.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function noShadow() {
-        this._options.shadowColor = 'rgba(0,0,0,0)';
-
-        return this;
-    }
-    /**
-     * Remove the stroke.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function noStroke() {
-        this._options.strokeStyle = null;
-
-        return this;
-    }
-    /**
-     * Set the shadow color.
-     * @param {string|CanvasGradient} color The color.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function shadow(color) {
-        this._options.shadowColor = color;
-
-        return this;
-    }
-    /**
-     * Set the shadow blur amount.
-     * @param {number} amount The blur amount.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function shadowBlur(amount) {
-        this._options.shadowBlur = amount;
-
-        return this;
-    }
-    /**
-     * Set the shadow x/y offset.
-     * @param {number} [x=0] The X offset.
-     * @param {number} [y=0] The Y offset.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function shadowOffset(x = 0, y = 0) {
-        this._options.shadowOffsetX = x;
-        this._options.shadowOffsetY = y;
-
-        return this;
-    }
-    /**
-     * Set the stroke color/style.
-     * @param {string|CanvasGradient} color The color/gradient.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function stroke(color) {
-        this._options.strokeStyle = color;
-
-        return this;
-    }
-    /**
-     * Set the stroke width.
-     * @param {number} width The width.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function strokeWidth(width) {
-        this._options.lineWidth = width;
-
-        return this;
-    }
-    /**
-     * Draw text to the canvas.
-     * @param {string} text The text to draw.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function text(text, x, y) {
-        this._updateContext();
-
-        const font = [];
-
-        if (this._options.fontWeight) {
-            font.push(this._options.fontWeight);
-        }
-
-        font.push(`${this._options.fontSize}px`);
-        font.push(this._options.font);
-
-        this._context.font = font.join(' ');
-        this._context.textAlign = this._options.textAlign;
-
-        if (this._options.fillStyle) {
-            this._context.fillText(text, x, y);
-        }
-
-        if (this._options.strokeStyle) {
-            this._context.strokeText(text, x, y);
-        }
-
-        return this;
-    }
-    /**
-     * Set the text alignment.
-     * @param {string} aligment The text alignment.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function textAlign(aligment) {
-        this._options.textAlign = aligment;
-
-        return this;
-    }
-    /**
-     * Draw to the canvas.
-     */
-    function _draw() {
-        this._updateContext();
-
-        if (this._options.fillStyle) {
-            this._context.fill();
-        }
-
-        if (this._options.strokeStyle) {
-            this._context.stroke();
-        }
-    }
-    /**
-     * Update the canvas context.
-     */
-    function _updateContext() {
-        this._context.fillStyle = this._options.fillStyle;
-        this._context.lineWidth = this._options.lineWidth;
-        this._context.shadowBlur = this._options.shadowBlur;
-        this._context.shadowColor = this._options.shadowColor;
-        this._context.shadowOffsetX = this._options.shadowOffsetX;
-        this._context.shadowOffsetY = this._options.shadowOffsetY;
-        this._context.strokeStyle = this._options.strokeStyle;
-    }
-
-    /**
-     * Create a linear gradient.
-     * @param {number} x1 The starting X position.
-     * @param {number} y1 The starting Y position.
-     * @param {number} x2 The ending X position.
-     * @param {number} y2 The ending Y position.
-     * @return {CanvasGradient} The CanvasGradient.
-     */
-    function linearGradient(x1, y1, x2, y2) {
-        return this._context.createLinearGradient(x1, y1, x2, y2);
-    }
-    /**
-     * Create a radial gradient.
-     * @param {number} x1 The starting X position.
-     * @param {number} y1 The starting Y position.
-     * @param {number} r1 Th starting radius.
-     * @param {number} x2 The ending X position.
-     * @param {number} y2 The ending Y position.
-     * @param {number} r2 Th ending radius.
-     * @return {CanvasGradient} The CanvasGradient.
-     */
-    function radialGradient(x1, y1, r1, x2, y2, r2) {
-        return this._context.createRadialGradient(x1, y1, r1, x2, y2, r2);
-    }
-
-    /**
-     * Begin a path.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function begin() {
-        this._context.beginPath();
-        this._hasVertex = false;
-
-        return this;
-    }
-    /**
-     * Add a bezier vertex.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function bezierVertex$1(cx1, cy1, cx2, cy2, x, y) {
-        this._context.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
-
-        return this;
-    }
-    /**
-     * Add a curve vertex.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} radius The arc radius.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function curveVertex$1(cx1, cy1, cx2, cy2, radius) {
-        this._context.arcTo(cx1, cy1, cx2, cy2, radius);
-
-        return this;
-    }
-    /**
-     * End and draw the path.
-     * @param {Boolean} [close=false] Whether to close the path.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function end(close = false) {
-        if (close) {
-            this._context.closePath();
-        }
-
-        this._draw();
-
-        return this;
-    }
-    /**
-     * Add a quadtraic vertex.
-     * @param {number} cx The control point X position.
-     * @param {number} cy The control point Y position.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function quadraticVertex$1(cx, cy, x, y) {
-        this._context.quadraticCurveTo(cx, cy, x, y);
-
-        return this;
-    }
-    /**
-     * Add a vertex.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function vertex$1(x, y) {
-        if (!this._hasVertex) {
-            this._context.moveTo(x, y);
-            this._hasVertex = true;
-        } else {
-            this._context.lineTo(x, y);
-        }
-
-        return this;
-    }
-
-    /**
-     * Draw an arc.
-     * @param {number} x The X position of the arc center.
-     * @param {number} y The Y position of the arc center.
-     * @param {number} radius The arc radius.
-     * @param {number} startAngle The arc start angle.
-     * @param {number} endAngle The arc end angle.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function arc$1(x, y, radius, startAngle, endAngle) {
-        this.begin();
-
-        this._context.arc(x, y, radius, startAngle, endAngle);
-
-        return this.end();
-    }
-    /**
-     * Draw a bezier curve.
-     * @param {number} x1 The start X position.
-     * @param {number} y1 The start Y position.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} x2 The end X position.
-     * @param {number} y2 The end Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function bezier$1(x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
-        return this.begin()
-            .vertex(x1, y1)
-            .bezierVertex(cx1, cy1, cx2, cy2, x2, y2)
-            .end();
-    }
-    /**
-     * Draw a circle.
-     * @param {number} x The X position of the circle center.
-     * @param {number} y The Y position of the circle center.
-     * @param {number} radius The circle radius.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function circle$1(x, y, radius) {
-        return this.ellipse(x, y, radius * 2, radius * 2);
-    }
-    /**
-     * Draw a curve.
-     * @param {number} x1 The start X position.
-     * @param {number} y1 The start Y position.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} radius The arc radius.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function curve$1(x1, y1, cx1, cy1, cx2, cy2, radius) {
-        return this.begin()
-            .vertex(x1, y1)
-            .curveVertex(cx1, cy1, cx2, cy2, radius)
-            .end();
-    }
-    /**
-     * Draw an ellipse.
-     * @param {number} x The X position of the ellipse center.
-     * @param {number} y The Y position of the ellipse center.
-     * @param {number} width The ellipse width.
-     * @param {number} height The ellipse height.
-     * @param {number} [angle=0] The ellipse angle.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function ellipse$1(x, y, width, height, angle = 0) {
-        this.begin();
-
-        this._context.ellipse(x, y, width / 2, height / 2, angle, 0, Math.PI * 2);
-
-        return this.end();
-    }
-    /**
-     * Draw a line.
-     * @param {number} x1 The start X position.
-     * @param {number} y1 The start Y position.
-     * @param {number} x2 The end X position.
-     * @param {number} y2 The end Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function line$1(x1, y1, x2, y2) {
-        return this.begin()
-            .vertex(x1, y1)
-            .vertex(x2, y2)
-            .end();
-    }
-    /**
-     * Draw a point.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function point(x, y) {
-        const { lineWidth, strokeStyle } = this._options;
-
-        return this.push()
-            .noStroke()
-            .fill(strokeStyle)
-            .circle(x, y, lineWidth)
-            .pop();
-    }
-    /**
-     * Draw a quadratic.
-     * @param {number} x1 The first X position.
-     * @param {number} y1 The first Y position.
-     * @param {number} x2 The second X position.
-     * @param {number} y2 The second Y position.
-     * @param {number} x3 The third X position.
-     * @param {number} y3 The third Y position.
-     * @param {number} x4 The fourth X position.
-     * @param {number} y4 The fourth Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function quad$1(x1, y1, x2, y2, x3, y3, x4, y4) {
-        return this.begin()
-            .vertex(x1, y1)
-            .vertex(x2, y2)
-            .vertex(x3, y3)
-            .vertex(x4, y4)
-            .end(true);
-    }
-    /**
-     * Draw a rectangle.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @param {number} width The rectangle width.
-     * @param {number} height The rectangle height.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function rect$1(x, y, width, height) {
-        this.begin();
-
-        this._context.rect(x, y, width, height);
-
-        return this.end();
-    }
-    /**
-     * Draw a square.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @param {number} size The square size.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function square$1(x, y, size) {
-        return this.rect(x, y, size, size);
-    }
-    /**
-     * Draw a triangle.
-     * @param {number} x1 The first X position.
-     * @param {number} y1 The first Y position.
-     * @param {number} x2 The second X position.
-     * @param {number} y2 The second Y position.
-     * @param {number} x3 The third X position.
-     * @param {number} y3 The third Y position.
-     * @return {CanvasContext} The CanvasContext.
-     */
-    function triangle$1(x1, y1, x2, y2, x3, y3) {
-        return this.begin()
-            .vertex(x1, y1)
-            .vertex(x2, y2)
-            .vertex(x3, y3)
-            .end(true);
-    }
-
-    // CanvasContext default options
-    CanvasContext.defaults = {
-        fillStyle: null,
-        font: 'sans-serif',
-        fontSize: 10,
-        fontWeight: null,
-        lineWidth: 1,
-        shadowBlur: 0,
-        shadowColor: null,
-        shadowOffsetX: 0,
-        shadowOffsetY: 0,
-        strokeStyle: '#000',
-    };
-
-    // CanvasContext prototype
-    const proto$1 = CanvasContext.prototype;
-
-    proto$1.arc = arc$1;
-    proto$1.begin = begin;
-    proto$1.bezier = bezier$1;
-    proto$1.bezierVertex = bezierVertex$1;
-    proto$1.circle = circle$1;
-    proto$1.curve = curve$1;
-    proto$1.curveVertex = curveVertex$1;
-    proto$1.ellipse = ellipse$1;
-    proto$1.end = end;
-    proto$1.fill = fill;
-    proto$1.font = font;
-    proto$1.fontSize = fontSize;
-    proto$1.fontWeight = fontWeight;
-    proto$1.line = line$1;
-    proto$1.linearGradient = linearGradient;
-    proto$1.noFill = noFill;
-    proto$1.noShadow = noShadow;
-    proto$1.noStroke = noStroke;
-    proto$1.point = point;
-    proto$1.quad = quad$1;
-    proto$1.quadraticVertex = quadraticVertex$1;
-    proto$1.radialGradient = radialGradient;
-    proto$1.rect = rect$1;
-    proto$1.shadow = shadow;
-    proto$1.shadowBlur = shadowBlur;
-    proto$1.shadowOffset = shadowOffset;
-    proto$1.square = square$1;
-    proto$1.stroke = stroke;
-    proto$1.strokeWidth = strokeWidth;
-    proto$1.text = text;
-    proto$1.textAlign = textAlign;
-    proto$1.triangle = triangle$1;
-    proto$1.vertex = vertex$1;
-    proto$1._draw = _draw;
-    proto$1._updateContext = _updateContext;
-
-    /**
-     * Add a bezier vertex.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {Path} The Path.
-     */
-    function bezierVertex(cx1, cy1, cx2, cy2, x, y) {
-        this._path.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
-
-        this._setBounds([cx1, cx2, x], [cy1, cy2, y]);
-
-        return this;
-    }
-    /**
-     * Close the path.
-     * @return {Path} The Path.
-     */
-    function close() {
-        this._path.closePath();
-
-        return this;
-    }
-    /**
-     * Add a curve vertex.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} radius The arc radius.
-     * @return {Path} The Path.
-     */
-    function curveVertex(cx1, cy1, cx2, cy2, radius) {
-        this._path.arcTo(cx1, cy1, cx2, cy2, radius);
-
-        this._setBounds([cx1, cx2], [cy1, cy2]);
-
-        return this;
-    }
-    /**
-     * Add a quadtraic vertex.
-     * @param {number} cx The control point X position.
-     * @param {number} cy The control point Y position.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {Path} The Path.
-     */
-    function quadraticVertex(cx, cy, x, y) {
-        this._path.quadraticCurveTo(cx, cy, x, y);
-
-        this._setBounds([cx, x], [cy, y]);
-
-        return this;
-    }
-    /**
-     * Add a vertex.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @return {Path} The Path.
-     */
-    function vertex(x, y) {
-        if (!this._hasVertex) {
-            this._path.moveTo(x, y);
-            this._hasVertex = true;
-        } else {
-            this._path.lineTo(x, y);
-        }
-
-        this._setBounds([x], [y]);
-        return this;
-    }
-
-    /**
-     * Add an arc.
-     * @param {number} x The X position of the arc center.
-     * @param {number} y The Y position of the arc center.
-     * @param {number} radius The arc radius.
-     * @param {number} startAngle The arc start angle.
-     * @param {number} endAngle The arc end angle.
-     * @return {Path} The Path.
-     */
-    function arc(x, y, radius, startAngle, endAngle) {
-        this._path.arc(x, y, radius, startAngle, endAngle);
-
-        this._setBounds([x - radius, x + radius], [y - radius, y + radius]);
-
-        return this;
-    }
-    /**
-     * Add a bezier curve.
-     * @param {number} x1 The start X position.
-     * @param {number} y1 The start Y position.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} x2 The end X position.
-     * @param {number} y2 The end Y position.
-     * @return {Path} The Path.
-     */
-    function bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
-        this._path.moveTo(x1, y1);
-        this._path.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
-
-        this._setBounds([x1, cx1, cx2, x2], [y1, cy1, cy2, y2]);
-
-        return this;
-    }
-    /**
-     * Add a circle.
-     * @param {number} x The X position of the circle center.
-     * @param {number} y The Y position of the circle center.
-     * @param {number} radius The circle radius.
-     * @return {Path} The Path.
-     */
-    function circle(x, y, radius) {
-        return this.ellipse(x, y, radius * 2, radius * 2);
-    }
-    /**
-     * Add a curve.
-     * @param {number} x1 The start X position.
-     * @param {number} y1 The start Y position.
-     * @param {number} cx1 The first control point X position.
-     * @param {number} cy1 The first control point Y position.
-     * @param {number} cx2 The second control point X position.
-     * @param {number} cy2 The second control point Y position.
-     * @param {number} radius The arc radius.
-     * @return {Path} The Path.
-     */
-    function curve(x1, y1, cx1, cy1, cx2, cy2, radius) {
-        this._path.moveTo(x1, y1);
-        this._path.arcTo(cx1, cy1, cx2, cy2, radius);
-
-        this._setBounds([x1, cx1, cx2], [y1, cy1, cy2]);
-
-        return this;
-    }
-    /**
-     * Add an ellipse.
-     * @param {number} x The X position of the ellipse center.
-     * @param {number} y The Y position of the ellipse center.
-     * @param {number} width The ellipse width.
-     * @param {number} height The ellipse height.
-     * @param {number} [angle=0] The ellipse angle.
-     * @return {Path} The Path.
-     */
-    function ellipse(x, y, width, height, angle = 0) {
-        const xRadius = width / 2;
-        const yRadius = height / 2;
-
-        this._path.ellipse(x, y, xRadius, yRadius, angle, 0, Math.PI * 2);
-
-        this._setBounds([x - xRadius, x + xRadius], [y - yRadius, y + yRadius]);
-
-        return this;
-    }
-    /**
-     * Add a line.
-     * @param {number} x1 The start X position.
-     * @param {number} y1 The start Y position.
-     * @param {number} x2 The end X position.
-     * @param {number} y2 The end Y position.
-     * @return {Path} The Path.
-     */
-    function line(x1, y1, x2, y2) {
-        this._path.moveTo(x1, y1);
-        this._path.lineTo(x2, y2);
-
-        this._setBounds([x1, x2], [y1, y2]);
-
-        return this;
-    }
-    /**
-     * Add a quadratic.
-     * @param {number} x1 The first X position.
-     * @param {number} y1 The first Y position.
-     * @param {number} x2 The second X position.
-     * @param {number} y2 The second Y position.
-     * @param {number} x3 The third X position.
-     * @param {number} y3 The third Y position.
-     * @param {number} x4 The fourth X position.
-     * @param {number} y4 The fourth Y position.
-     * @return {Path} The Path.
-     */
-    function quad(x1, y1, x2, y2, x3, y3, x4, y4) {
-        this._path.moveTo(x1, y1);
-        this._path.lineTo(x2, y2);
-        this._path.lineTo(x3, y3);
-        this._path.lineTo(x4, y4);
-        this._path.closePath();
-
-        this._setBounds([x1, x2, x3, x4], [y1, y2, y3, y4]);
-
-        return this;
-    }
-    /**
-     * Add a rectangle.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @param {number} width The rectangle width.
-     * @param {number} height The rectangle height.
-     * @return {Path} The Path.
-     */
-    function rect(x, y, width, height) {
-        this._path.rect(x, y, width, height);
-
-        this._setBounds([x, x + width], [y, y + height]);
-
-        return this;
-    }
-    /**
-     * Add a square.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
-     * @param {number} size The square size.
-     * @return {Path} The Path.
-     */
-    function square(x, y, size) {
-        return this.rect(x, y, size, size);
-    }
-    /**
-     * Add a triangle.
-     * @param {number} x1 The first X position.
-     * @param {number} y1 The first Y position.
-     * @param {number} x2 The second X position.
-     * @param {number} y2 The second Y position.
-     * @param {number} x3 The third X position.
-     * @param {number} y3 The third Y position.
-     * @return {Path} The Path.
-     */
-    function triangle(x1, y1, x2, y2, x3, y3) {
-        this._path.moveTo(x1, y1);
-        this._path.lineTo(x2, y2);
-        this._path.lineTo(x3, y3);
-        this._path.closePath();
-
-        this._setBounds([x1, x2, x3], [y1, y2, y3]);
-
-        return this;
-    }
-
-    // Path prototype
-    const proto = Path.prototype;
-
-    proto.arc = arc;
-    proto.bezier = bezier;
-    proto.bezierVertex = bezierVertex;
-    proto.circle = circle;
-    proto.close = close;
-    proto.curve = curve;
-    proto.curveVertex = curveVertex;
-    proto.ellipse = ellipse;
-    proto.line = line;
-    proto.quad = quad;
-    proto.quadraticVertex = quadraticVertex;
-    proto.rect = rect;
-    proto.square = square;
-    proto.triangle = triangle;
-    proto.vertex = vertex;
 
     exports.Canvas = Canvas;
     exports.CanvasContext = CanvasContext;

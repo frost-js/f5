@@ -26,8 +26,12 @@
         "build": "npm run js-compile && npm run js-minify",
         "js-compile": "rollup --config",
         "js-lint": "eslint",
-        "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/f5.js.map\" --output dist/f5.min.js dist/f5.js",
-        "test": "mocha"
+        "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/f5.js.map,url=f5.min.js.map\" --output dist/f5.min.js dist/f5.js",
+        "test": "npm run test:unit && npm run test:browser",
+        "test:browser": "npm run build && playwright test --forbid-only",
+        "test:headed": "npm run build && playwright test --headed",
+        "test:ui": "npm run build && playwright test --ui",
+        "test:unit": "playwright test --config=playwright.unit.config.js"
     },
     "repository": {
         "type": "git",
@@ -37,10 +41,10 @@
     "license": "MIT",
     "private": false,
     "devDependencies": {
-        "@fr0st/eslint-config": "^1.0.3",
-        "eslint": "^9.26.0",
-        "mocha": "^11.2.2",
-        "rollup": "^4.40.2",
-        "terser": "^5.39.0"
+        "@fr0st/eslint-config": "^3.0.1",
+        "@playwright/test": "^1.58.2",
+        "eslint": "^10.1.0",
+        "rollup": "^4.60.0",
+        "terser": "^5.46.1"
     }
 }

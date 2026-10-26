@@ -1,10 +1,14 @@
-import Path from './../path/path.js';
-import Vector from './../vector/vector.js';
+import Path from './path.js';
+import { emptyBounds, getRenderBounds } from './render.js';
+import Vector from './vector.js';
 
 /**
  * Shape
  */
 export default class Shape {
+    #context;
+    #layers;
+
     /**
      * New Shape constructor.
      * @param {CanvasRenderingContext2D} context The canvas context.
@@ -15,7 +19,7 @@ export default class Shape {
      * @param {number} [anchorY=0] The anchor Y position.
      */
     constructor(context, x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0) {
-        this._context = context;
+        this.#context = context;
 
         this.x = x;
         this.y = y;
@@ -23,7 +27,7 @@ export default class Shape {
         this.anchorX = anchorX;
         this.anchorY = anchorY;
 
-        this.layers = [];
+        this.#layers = [];
     }
 
     /**
@@ -42,7 +46,7 @@ export default class Shape {
 
         let pointInShape = false;
 
-        for (const { contour, path } of this.layers) {
+        for (const { contour, path } of this.#layers) {
             if (
                 (pointInShape && !contour) ||
                 (!pointInShape && contour) ||
@@ -59,7 +63,7 @@ export default class Shape {
 
     /**
      * Add a contour to the shape.
-     * @param {callback} callback The callback to generate the path.
+     * @param {(path: Path) => void} callback The callback to generate the path.
      * @return {Shape} The Shape.
      */
     contour(callback) {
@@ -78,21 +82,30 @@ export default class Shape {
             left: Number.POSITIVE_INFINITY,
         };
 
-        for (const layer of this.layers) {
+        for (const layer of this.#layers) {
             if (layer.contour) {
                 continue;
             }
 
             const bounds = layer.path.getBoundingBox();
-            const rotated1 = this._rotatePoint(bounds.right, bounds.top);
-            const rotated2 = this._rotatePoint(bounds.right, bounds.bottom);
-            const rotated3 = this._rotatePoint(bounds.left, bounds.bottom);
-            const rotated4 = this._rotatePoint(bounds.left, bounds.top);
+            const rotated1 = this.#rotatePoint(bounds.right, bounds.top);
+            const rotated2 = this.#rotatePoint(bounds.right, bounds.bottom);
+            const rotated3 = this.#rotatePoint(bounds.left, bounds.bottom);
+            const rotated4 = this.#rotatePoint(bounds.left, bounds.top);
 
             bounding.top = Math.min(bounding.top, rotated1.y, rotated2.y, rotated3.y, rotated4.y);
             bounding.right = Math.max(bounding.right, rotated1.x, rotated2.x, rotated3.x, rotated4.x);
             bounding.bottom = Math.max(bounding.bottom, rotated1.y, rotated2.y, rotated3.y, rotated4.y);
             bounding.left = Math.min(bounding.left, rotated1.x, rotated2.x, rotated3.x, rotated4.x);
+        }
+
+        if (
+            !Number.isFinite(bounding.top) ||
+            !Number.isFinite(bounding.right) ||
+            !Number.isFinite(bounding.bottom) ||
+            !Number.isFinite(bounding.left)
+        ) {
+            return emptyBounds();
         }
 
         return {
@@ -109,15 +122,15 @@ export default class Shape {
 
     /**
      * Add a layer to the shape.
-     * @param {callback} callback The callback to generate the path.
+     * @param {(path: Path) => void} callback The callback to generate the path.
      * @param {Boolean} [contour=false] Whether the path is contoured.
      * @return {Shape} The Shape.
      */
     layer(callback, contour = false) {
-        const path = new Path(this._context);
+        const path = new Path(this.#context);
         callback(path);
 
-        this.layers.push({
+        this.#layers.push({
             contour,
             path,
         });
@@ -133,34 +146,30 @@ export default class Shape {
     render(options = {}) {
         const canvas = document.createElement('canvas');
 
-        if (!this.layers.length) {
+        if (!this.#layers.length) {
+            canvas.setAttribute('width', 0);
+            canvas.setAttribute('height', 0);
+
             return canvas;
         }
 
-        let { width, height, x, y } = this.getBoundingBox();
-
-        const lineWidth = Math.max(options.lineWidth, 0);
-
-        if (lineWidth) {
-            width += lineWidth * 2;
-            height += lineWidth * 2;
-            x -= lineWidth;
-            y -= lineWidth;
-        }
+        const renderBounds = getRenderBounds(this.getBoundingBox(), options);
 
         const context = canvas.getContext('2d');
 
-        canvas.setAttribute('width', width);
-        canvas.setAttribute('height', height);
+        if (!context) {
+            throw new Error('Unable to create a 2D canvas context.');
+        }
 
-        context.translate(this.x - x, this.y - y);
+        canvas.setAttribute('width', renderBounds.width);
+        canvas.setAttribute('height', renderBounds.height);
+
+        context.translate(this.x - renderBounds.x, this.y - renderBounds.y);
         context.translate(this.anchorX, this.anchorY);
         context.rotate(this.angle);
         context.translate(-this.anchorX, -this.anchorY);
 
-        for (const { contour, path } of this.layers) {
-            let { x: layerX, y: layerY } = path.getBoundingBox();
-
+        for (const { contour, path } of this.#layers) {
             let layerOptions;
             if (contour) {
                 context.globalCompositeOperation = 'destination-out';
@@ -171,16 +180,13 @@ export default class Shape {
             } else {
                 context.globalCompositeOperation = 'source-over';
                 layerOptions = options;
-
-                if (lineWidth) {
-                    layerX -= lineWidth;
-                    layerY -= lineWidth;
-                }
             }
+
+            const layerBounds = getRenderBounds(path.getBoundingBox(), layerOptions);
 
             const layerCanvas = path.render(layerOptions);
 
-            context.drawImage(layerCanvas, layerX, layerY);
+            context.drawImage(layerCanvas, layerBounds.x, layerBounds.y);
         }
 
         return canvas;
@@ -192,12 +198,15 @@ export default class Shape {
      * @param {number} y The Y position.
      * @return {Vector} The rotated Vector.
      */
-    _rotatePoint(x, y) {
-        const anchor = Vector.create(this.anchorX, this.anchorY);
+    #rotatePoint(x, y) {
+        const translatedX = x - this.anchorX;
+        const translatedY = y - this.anchorY;
+        const cos = Math.cos(this.angle);
+        const sin = Math.sin(this.angle);
 
-        return Vector.create(x, y)
-            .sub(anchor)
-            .rotate(this.angle)
-            .add(anchor);
+        return Vector.create(
+            translatedX * cos - translatedY * sin + this.anchorX,
+            translatedX * sin + translatedY * cos + this.anchorY,
+        );
     }
 }

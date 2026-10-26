@@ -20,20 +20,26 @@
         class ContourSketch extends F5.Canvas {
 
             setup() {
+                this.paths = [];
                 this.shape = this.context.createShape(0, 0, 0, 300, 200)
                     .layer(path => {
+                        this.paths.push(path);
                         path.circle(300, 200, 150);
                     })
                     .layer(path => {
+                        this.paths.push(path);
                         path.triangle(150, 300, 300, 25, 450, 300);
                     })
                     .contour(path => {
+                        this.paths.push(path);
                         path.triangle(200, 275, 300, 75, 400, 275);
                     })
                     .layer(path => {
+                        this.paths.push(path);
                         path.circle(300, 200, 50);
                     })
                     .contour(path => {
+                        this.paths.push(path);
                         path.triangle(260, 225, 300, 150, 340, 225);
                     });
 
@@ -41,7 +47,7 @@
                 this.rotation = Math.random() / 2 + 0.5;
             }
 
-            update(time) {
+            update(deltaTime, elapsedTime) {
                 this.shape.x += this.force.x;
                 this.shape.y += this.force.y;
 
@@ -53,7 +59,7 @@
                     this.force.y *= -1;
                 }
 
-                this.shape.angle = time * this.rotation;
+                this.shape.angle = elapsedTime * this.rotation;
 
                 const mousePos = this.mousePos();
 
@@ -75,8 +81,8 @@
                     .noFill()
                     .stroke('yellow');
 
-                for (const layer of this.shape.layers) {
-                    const { x, y, width, height } = layer.path.getBoundingBox();
+                for (const path of this.paths) {
+                    const { x, y, width, height } = path.getBoundingBox();
 
                     this.context.rect(x, y, width, height);
                 }
