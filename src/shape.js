@@ -37,8 +37,8 @@ export default class Shape {
      * @returns {boolean} Whether the global point lies inside a filled layer after contours are applied.
      */
     containsPoint(x, y) {
-        const anchor = Vector.create(this.x + this.anchorX, this.y + this.anchorY);
-        const rotatedPoint = Vector.create(x, y)
+        const anchor = Vector.create(this.anchorX, this.anchorY);
+        const localPoint = Vector.create(x - this.x, y - this.y)
             .sub(anchor)
             .rotate(-this.angle)
             .add(anchor);
@@ -50,7 +50,7 @@ export default class Shape {
                 continue;
             }
 
-            if (path.containsPoint(rotatedPoint.x - this.x, rotatedPoint.y - this.y)) {
+            if (path.containsPoint(localPoint.x, localPoint.y)) {
                 pointInShape = !contour;
             }
         }

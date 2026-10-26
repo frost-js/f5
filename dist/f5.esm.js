@@ -119,24 +119,9 @@ function getArcToSegment(start, corner, end, radius) {
 		x: corner.x + bisector.x * centerDistance,
 		y: corner.y + bisector.y * centerDistance
 	};
-	const startRadius = {
-		x: startTangent.x - center.x,
-		y: startTangent.y - center.y
-	};
-	const inputDirection = {
-		x: -toStart.x,
-		y: -toStart.y
-	};
-	const counterClockwiseTangent = {
-		x: -startRadius.y,
-		y: startRadius.x
-	};
 	return {
 		center,
-		counterClockwise: dot({
-			x: startRadius.y,
-			y: -startRadius.x
-		}, inputDirection) > dot(counterClockwiseTangent, inputDirection),
+		counterClockwise: toStart.x * toEnd.y - toStart.y * toEnd.x > 0,
 		endAngle: Math.atan2(endTangent.y - center.y, endTangent.x - center.x),
 		endTangent,
 		startAngle: Math.atan2(startTangent.y - center.y, startTangent.x - center.x),
@@ -406,7 +391,6 @@ var Path = class {
 	#context;
 	#currentX = null;
 	#currentY = null;
-	#hasVertex = false;
 	#path;
 	#subpathStartX = null;
 	#subpathStartY = null;
@@ -432,7 +416,7 @@ var Path = class {
 	* @returns {Path} The Path.
 	*/
 	arc(x, y, radius, startAngle, endAngle) {
-		const startsSubpath = !this.#hasVertex;
+		const startsSubpath = this.#currentX === null;
 		this.#path.arc(x, y, radius, startAngle, endAngle);
 		this.#setBoundsFromPoints(getArcBoundsPoints(x, y, radius, startAngle, endAngle));
 		if (startsSubpath) {
@@ -475,7 +459,7 @@ var Path = class {
 		const startX = this.#currentX ?? cx1;
 		const startY = this.#currentY ?? cy1;
 		this.#path.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
-		this.#setBoundsFromPoints(this.#hasVertex ? getCubicBoundsPoints(startX, startY, cx1, cy1, cx2, cy2, x, y) : [
+		this.#setBoundsFromPoints(this.#currentX !== null ? getCubicBoundsPoints(startX, startY, cx1, cy1, cx2, cy2, x, y) : [
 			{
 				x: cx1,
 				y: cy1
@@ -511,7 +495,6 @@ var Path = class {
 		if (this.#subpathStartX !== null && this.#subpathStartY !== null) {
 			this.#currentX = this.#subpathStartX;
 			this.#currentY = this.#subpathStartY;
-			this.#hasVertex = true;
 		}
 		return this;
 	}
@@ -562,7 +545,7 @@ var Path = class {
 	* @returns {Path} The Path.
 	*/
 	curveVertex(cx1, cy1, cx2, cy2, radius) {
-		const start = this.#hasVertex ? {
+		const start = this.#currentX !== null ? {
 			x: this.#currentX,
 			y: this.#currentY
 		} : {
@@ -679,7 +662,7 @@ var Path = class {
 		const startX = this.#currentX ?? cx;
 		const startY = this.#currentY ?? cy;
 		this.#path.quadraticCurveTo(cx, cy, x, y);
-		this.#setBoundsFromPoints(this.#hasVertex ? getQuadraticBoundsPoints(startX, startY, cx, cy, x, y) : [{
+		this.#setBoundsFromPoints(this.#currentX !== null ? getQuadraticBoundsPoints(startX, startY, cx, cy, x, y) : [{
 			x: cx,
 			y: cy
 		}, {
@@ -767,7 +750,7 @@ var Path = class {
 	* @returns {Path} The Path.
 	*/
 	vertex(x, y) {
-		if (!this.#hasVertex) this.#moveTo(x, y);
+		if (this.#currentX === null) this.#moveTo(x, y);
 		else {
 			this.#path.lineTo(x, y);
 			this.#setCurrentPoint(x, y, false);
@@ -816,7 +799,6 @@ var Path = class {
 	#setCurrentPoint(x, y, resetSubpath = false) {
 		this.#currentX = x;
 		this.#currentY = y;
-		this.#hasVertex = true;
 		if (resetSubpath || this.#subpathStartX === null || this.#subpathStartY === null) {
 			this.#subpathStartX = x;
 			this.#subpathStartY = y;
@@ -1043,12 +1025,12 @@ var Shape = class {
 	* @returns {boolean} Whether the global point lies inside a filled layer after contours are applied.
 	*/
 	containsPoint(x, y) {
-		const anchor = Vector.create(this.x + this.anchorX, this.y + this.anchorY);
-		const rotatedPoint = Vector.create(x, y).sub(anchor).rotate(-this.angle).add(anchor);
+		const anchor = Vector.create(this.anchorX, this.anchorY);
+		const localPoint = Vector.create(x - this.x, y - this.y).sub(anchor).rotate(-this.angle).add(anchor);
 		let pointInShape = false;
 		for (const { contour, path } of this.#layers) {
 			if (pointInShape === !contour) continue;
-			if (path.containsPoint(rotatedPoint.x - this.x, rotatedPoint.y - this.y)) pointInShape = !contour;
+			if (path.containsPoint(localPoint.x, localPoint.y)) pointInShape = !contour;
 		}
 		return pointInShape;
 	}
@@ -2026,6 +2008,7 @@ var Canvas = class {
 			this.#events();
 			this.setup();
 			const run = () => {
+				this.#frameId = null;
 				if (this.#disposed || !this.#loop) return;
 				const now = this.#now();
 				if (this.#startTime === null) this.#startTime = now;
@@ -2034,10 +2017,7 @@ var Canvas = class {
 				this.#previousTime = now;
 				this.update(deltaTime, elapsedTime);
 				if (!this.#loop) return;
-				this.#frameId = this.#requestAnimationFrame(() => {
-					this.#frameId = null;
-					run();
-				});
+				this.#frameId = this.#requestAnimationFrame(run);
 			};
 			run();
 		} catch (error) {

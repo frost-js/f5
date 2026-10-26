@@ -179,27 +179,13 @@ function getArcToSegment(start, corner, end, radius) {
         x: corner.x + bisector.x * centerDistance,
         y: corner.y + bisector.y * centerDistance,
     };
-    const startRadius = {
-        x: startTangent.x - center.x,
-        y: startTangent.y - center.y,
-    };
-    const inputDirection = {
-        x: -toStart.x,
-        y: -toStart.y,
-    };
-    const counterClockwiseTangent = {
-        x: -startRadius.y,
-        y: startRadius.x,
-    };
-    const clockwiseTangent = {
-        x: startRadius.y,
-        y: -startRadius.x,
-    };
+
+    // The cross product of the corner vectors determines the arc direction.
+    const counterClockwise = toStart.x * toEnd.y - toStart.y * toEnd.x > 0;
 
     return {
         center,
-        counterClockwise: dot(clockwiseTangent, inputDirection) >
-            dot(counterClockwiseTangent, inputDirection),
+        counterClockwise,
         endAngle: Math.atan2(endTangent.y - center.y, endTangent.x - center.x),
         endTangent,
         startAngle: Math.atan2(startTangent.y - center.y, startTangent.x - center.x),

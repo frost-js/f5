@@ -21,7 +21,6 @@ export default class Path {
     #context;
     #currentX = null;
     #currentY = null;
-    #hasVertex = false;
     #path;
     #subpathStartX = null;
     #subpathStartY = null;
@@ -57,7 +56,7 @@ export default class Path {
      * @returns {Path} The Path.
      */
     arc(x, y, radius, startAngle, endAngle) {
-        const startsSubpath = !this.#hasVertex;
+        const startsSubpath = this.#currentX === null;
 
         this.#path.arc(x, y, radius, startAngle, endAngle);
 
@@ -115,7 +114,7 @@ export default class Path {
         this.#path.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
 
         this.#setBoundsFromPoints(
-            this.#hasVertex ?
+            this.#currentX !== null ?
                 getCubicBoundsPoints(startX, startY, cx1, cy1, cx2, cy2, x, y) :
                 [
                     { x: cx1, y: cy1 },
@@ -149,7 +148,6 @@ export default class Path {
         if (this.#subpathStartX !== null && this.#subpathStartY !== null) {
             this.#currentX = this.#subpathStartX;
             this.#currentY = this.#subpathStartY;
-            this.#hasVertex = true;
         }
 
         return this;
@@ -203,7 +201,7 @@ export default class Path {
      * @returns {Path} The Path.
      */
     curveVertex(cx1, cy1, cx2, cy2, radius) {
-        const start = this.#hasVertex ?
+        const start = this.#currentX !== null ?
             { x: this.#currentX, y: this.#currentY } :
             { x: cx1, y: cy1 };
 
@@ -332,7 +330,7 @@ export default class Path {
         this.#path.quadraticCurveTo(cx, cy, x, y);
 
         this.#setBoundsFromPoints(
-            this.#hasVertex ?
+            this.#currentX !== null ?
                 getQuadraticBoundsPoints(startX, startY, cx, cy, x, y) :
                 [
                     { x: cx, y: cy },
@@ -435,7 +433,7 @@ export default class Path {
      * @returns {Path} The Path.
      */
     vertex(x, y) {
-        if (!this.#hasVertex) {
+        if (this.#currentX === null) {
             this.#moveTo(x, y);
         } else {
             this.#path.lineTo(x, y);
@@ -491,7 +489,6 @@ export default class Path {
     #setCurrentPoint(x, y, resetSubpath = false) {
         this.#currentX = x;
         this.#currentY = y;
-        this.#hasVertex = true;
 
         if (resetSubpath || this.#subpathStartX === null || this.#subpathStartY === null) {
             this.#subpathStartX = x;

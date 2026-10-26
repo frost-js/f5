@@ -263,6 +263,8 @@ export default class Canvas {
             this.setup();
 
             const run = () => {
+                this.#frameId = null;
+
                 if (this.#disposed || !this.#loop) {
                     return;
                 }
@@ -286,11 +288,7 @@ export default class Canvas {
                     return;
                 }
 
-                this.#frameId = this.#requestAnimationFrame(() => {
-                    this.#frameId = null;
-
-                    run();
-                });
+                this.#frameId = this.#requestAnimationFrame(run);
             };
 
             run();
