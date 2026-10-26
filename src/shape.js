@@ -139,9 +139,14 @@ export default class Shape {
     /**
      * Renders the shape.
      * @param {RenderOptions} [options={}] The rendering options.
+     * @param {number} [pixelRatio=1] The number of rendered pixels per geometry unit.
      * @returns {HTMLCanvasElement} The rendered canvas.
      */
-    render(options = {}) {
+    render(options = {}, pixelRatio = 1) {
+        if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
+            throw new RangeError('Render pixel ratio must be a positive, finite number.');
+        }
+
         const ownerDocument = this.#context.canvas?.ownerDocument ?? globalThis.document;
         const canvas = ownerDocument.createElement('canvas');
 
@@ -159,8 +164,10 @@ export default class Shape {
             throw new Error('Unable to create a 2D canvas context.');
         }
 
-        canvas.width = renderBounds.width;
-        canvas.height = renderBounds.height;
+        canvas.width = Math.ceil(renderBounds.width * pixelRatio);
+        canvas.height = Math.ceil(renderBounds.height * pixelRatio);
+
+        context.scale(pixelRatio, pixelRatio);
 
         context.translate(this.x - renderBounds.x, this.y - renderBounds.y);
         context.translate(this.anchorX, this.anchorY);
@@ -182,9 +189,15 @@ export default class Shape {
             }
 
             const layerBounds = getRenderBounds(path.getBoundingBox(), layerOptions);
-            const layerCanvas = path.render(layerOptions);
+            const layerCanvas = path.render(layerOptions, pixelRatio);
 
-            context.drawImage(layerCanvas, layerBounds.x, layerBounds.y);
+            context.drawImage(
+                layerCanvas,
+                layerBounds.x,
+                layerBounds.y,
+                layerCanvas.width / pixelRatio,
+                layerCanvas.height / pixelRatio,
+            );
         }
 
         return canvas;

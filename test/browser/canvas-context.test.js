@@ -383,6 +383,53 @@ test.describe('CanvasContext', () => {
     });
 
     test.describe('paths, shapes, and erasing', () => {
+        for (const type of ['path', 'shape']) {
+            for (const { x, y, inside, outside } of [
+                { x: 4, y: 2, inside: [21, 15], outside: [20, 15] },
+                { x: 2, y: 4, inside: [15, 21], outside: [15, 20] },
+            ]) {
+                test(`keeps ${type} edges sharp when scaled by ${x}, ${y}`, async ({ page }) => {
+                    const context = await page.evaluateHandle(({ type, x, y }) => {
+                        const context = new F5.CanvasContext(document.getElementById('canvas'), 60, 60);
+                        const geometry = type === 'path' ?
+                            context.createPath().rect(5.25, 5.25, 5.5, 5.5) :
+                            context.createShape().layer((path) => path.rect(5.25, 5.25, 5.5, 5.5));
+
+                        context.noStroke().fill('#ff0000').scale(x, y);
+
+                        if (type === 'path') {
+                            context.drawPath(geometry);
+                        } else {
+                            context.drawShape(geometry);
+                        }
+
+                        return context;
+                    }, { type, x, y });
+
+                    expect(await context.evaluate((context, point) => [...context.getImage(...point, 1, 1).data], inside))
+                        .toEqual([255, 0, 0, 255]);
+                    expect(await context.evaluate((context, point) => [...context.getImage(...point, 1, 1).data], outside))
+                        .toEqual([0, 0, 0, 0]);
+                });
+            }
+        }
+
+        test('keeps an erased edge sharp under scaling', async ({ page }) => {
+            const context = await page.evaluateHandle(() => {
+                const context = new F5.CanvasContext(document.getElementById('canvas'), 60, 60);
+
+                context.background('#ff0000').scale(4);
+                context.erase((path) => path.rect(5.25, 5.25, 5.5, 5.5));
+
+                return context;
+            });
+
+            expect(await context.evaluate((context) => [...context.getImage(21, 30, 1, 1).data]))
+                .toEqual([0, 0, 0, 0]);
+            expect(await context.evaluate((context) => [...context.getImage(20, 30, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+        });
+
         test('positions stroked paths using geometry coordinates and drawing offsets', async ({ page }) => {
             const pixels = await page.evaluate(() => {
                 const context = new F5.CanvasContext(document.getElementById('canvas'), 80, 80);

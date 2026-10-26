@@ -253,6 +253,62 @@ test.describe('Path', () => {
     });
 
     test.describe('#render', () => {
+        test('renders at higher density without changing geometry bounds', async ({ page }) => {
+            const path = await page.evaluateHandle(() => {
+                return new F5.Path(document.getElementById('canvas').getContext('2d')).rect(5.25, 5.25, 5.5, 5.5);
+            });
+            const canvas = await path.evaluateHandle((path) => path.render({ fillStyle: '#ff0000' }, 4));
+
+            expect(await canvas.evaluate((node) => node.width)).toBe(24);
+            expect(await canvas.evaluate((node) => node.height)).toBe(24);
+            expect(await path.evaluate((path) => path.getBoundingBox().width)).toBe(5.5);
+            expect(await path.evaluate((path) => path.getBoundingBox().x)).toBe(5.25);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(1, 12, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(0, 12, 1, 1).data]))
+                .toEqual([0, 0, 0, 0]);
+        });
+
+        test('rounds fractional pixel dimensions outward', async ({ page }) => {
+            const canvas = await page.evaluateHandle(() => {
+                return new F5.Path(document.getElementById('canvas').getContext('2d'))
+                    .rect(0, 0, 3, 3).render({ fillStyle: '#ff0000' }, 1.5);
+            });
+
+            expect(await canvas.evaluate((node) => node.width)).toBe(5);
+            expect(await canvas.evaluate((node) => node.height)).toBe(5);
+            expect(await canvas.evaluate((node) => node.getContext('2d').getImageData(3, 2, 1, 1).data[3])).toBe(255);
+            expect(await canvas.evaluate((node) => node.getContext('2d').getImageData(4, 2, 1, 1).data[3])).toBeGreaterThan(0);
+            expect(await canvas.evaluate((node) => node.getContext('2d').getImageData(4, 2, 1, 1).data[3])).toBeLessThan(255);
+        });
+
+        test('scales shadow offsets with the rendering density', async ({ page }) => {
+            const canvas = await page.evaluateHandle(() => {
+                return new F5.Path(document.getElementById('canvas').getContext('2d')).rect(10, 10, 10, 10)
+                    .render({ fillStyle: '#ff0000', shadowColor: '#0000ff', shadowOffsetX: 4, shadowOffsetY: -2 }, 2);
+            });
+
+            expect(await canvas.evaluate((node) => node.width)).toBe(28);
+            expect(await canvas.evaluate((node) => node.height)).toBe(24);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(5, 10, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(24, 10, 1, 1).data]))
+                .toEqual([0, 0, 255, 255]);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(24, 22, 1, 1).data]))
+                .toEqual([0, 0, 0, 0]);
+        });
+
+        for (const pixelRatio of [0, -1, Infinity, NaN]) {
+            test(`rejects a pixel ratio of ${pixelRatio}`, async ({ page }) => {
+                const geometry = await page.evaluateHandle(() => {
+                    return new F5.Path(document.getElementById('canvas').getContext('2d'));
+                });
+
+                await expect(geometry.evaluate((geometry, pixelRatio) => geometry.render({}, pixelRatio), pixelRatio))
+                    .rejects.toThrow('Render pixel ratio must be a positive, finite number.');
+            });
+        }
+
         test('renders fills without padding for an unused stroke width', async ({ page }) => {
             const result = await page.evaluate(() => {
                 const path = new F5.Path(document.getElementById('canvas').getContext('2d'))

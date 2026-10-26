@@ -254,13 +254,13 @@ context.drawShape(shape);
 | `shape.contour(callback)` | Add an erasing contour; the callback receives a new `Path` |
 | `containsPoint(x, y)` | Test a point against the path or shape |
 | `getBoundingBox()` | Return `{ top, right, bottom, left, x, y, width, height }` |
-| `render(options = {})` | Render the path or shape into a separate canvas |
+| `render(options = {}, pixelRatio = 1)` | Render the path or shape into a separate canvas at the requested pixel density |
 
 `Path` supports the primitive and vertex signatures listed under `CanvasContext`, except `point`, `begin`, and `end`. Use `close()` to close a retained path. Geometry-building methods return the path or shape for chaining.
 
 Shape properties `x`, `y`, `angle`, `anchorX`, and `anchorY` control position and rotation. `shape.containsPoint(x, y)` accepts global coordinates.
 
-Rendering options are `fillStyle`, `strokeStyle`, `lineWidth`, `shadowColor`, `shadowBlur`, `shadowOffsetX`, and `shadowOffsetY`. Supply a fill or stroke to render visible geometry, and an explicit `lineWidth` when using a stroke. `CanvasContext.drawPath()` and `drawShape()` supply the current drawing options automatically.
+Rendering options are `fillStyle`, `strokeStyle`, `lineWidth`, `shadowColor`, `shadowBlur`, `shadowOffsetX`, and `shadowOffsetY`. Supply a fill or stroke to render visible geometry, and an explicit `lineWidth` when using a stroke. `CanvasContext.drawPath()` and `drawShape()` supply the current drawing options and choose a rendering resolution from the active transform automatically. When calling `render()` directly, `pixelRatio` must be a positive, finite number; it controls the output resolution without changing the geometry coordinates or bounds.
 
 ### Vector
 

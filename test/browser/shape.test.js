@@ -113,6 +113,33 @@ test.describe('Shape', () => {
     });
 
     test.describe('#render', () => {
+        test('renders layers and contours at higher density', async ({ page }) => {
+            const canvas = await page.evaluateHandle(() => {
+                return new F5.Shape(document.getElementById('canvas').getContext('2d'))
+                    .layer((path) => path.rect(0, 0, 20, 20))
+                    .contour((path) => path.rect(5.25, 5.25, 5.5, 5.5))
+                    .render({ fillStyle: '#ff0000' }, 4);
+            });
+
+            expect(await canvas.evaluate((node) => node.width)).toBe(80);
+            expect(await canvas.evaluate((node) => node.height)).toBe(80);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(21, 30, 1, 1).data]))
+                .toEqual([0, 0, 0, 0]);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(20, 30, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+        });
+
+        for (const pixelRatio of [0, -1, Infinity, NaN]) {
+            test(`rejects a pixel ratio of ${pixelRatio}`, async ({ page }) => {
+                const geometry = await page.evaluateHandle(() => {
+                    return new F5.Shape(document.getElementById('canvas').getContext('2d'));
+                });
+
+                await expect(geometry.evaluate((geometry, pixelRatio) => geometry.render({}, pixelRatio), pixelRatio))
+                    .rejects.toThrow('Render pixel ratio must be a positive, finite number.');
+            });
+        }
+
         test('renders an empty shape to a zero-sized canvas', async ({ page }) => {
             const size = await page.evaluate(() => {
                 const shape = new F5.Shape(document.getElementById('canvas').getContext('2d'));

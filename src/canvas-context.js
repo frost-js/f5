@@ -844,9 +844,19 @@ export default class CanvasContext {
      * @returns {CanvasContext} The CanvasContext.
      */
     #drawGeometry(geometry, x, y) {
+        const { a, b, c, d } = this.#context.getTransform();
+        const pixelRatio = Math.max(1, Math.hypot(a, b), Math.hypot(c, d));
         const bounds = getRenderBounds(geometry.getBoundingBox(), this.#options);
-        const canvas = geometry.render(this.#options);
+        const canvas = geometry.render(this.#options, pixelRatio);
 
-        return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+        this.#context.drawImage(
+            canvas,
+            bounds.x + x,
+            bounds.y + y,
+            canvas.width / pixelRatio,
+            canvas.height / pixelRatio,
+        );
+
+        return this;
     }
 }

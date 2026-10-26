@@ -689,17 +689,25 @@ var Path = class {
 	/**
 	* Renders the path.
 	* @param {RenderOptions} [options={}] The rendering options.
+	* @param {number} [pixelRatio=1] The number of rendered pixels per geometry unit.
 	* @returns {HTMLCanvasElement} The rendered canvas.
 	*/
-	render(options = {}) {
+	render(options = {}, pixelRatio = 1) {
+		if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) throw new RangeError("Render pixel ratio must be a positive, finite number.");
 		const bounds = this.getBoundingBox();
 		const renderBounds = getRenderBounds(bounds, options);
 		const canvas = (this.#context.canvas?.ownerDocument ?? globalThis.document).createElement("canvas");
 		const context = canvas.getContext("2d");
 		if (!context) throw new Error("Unable to create a 2D canvas context.");
-		canvas.width = renderBounds.width;
-		canvas.height = renderBounds.height;
-		applyStyles(context, options);
+		canvas.width = Math.ceil(renderBounds.width * pixelRatio);
+		canvas.height = Math.ceil(renderBounds.height * pixelRatio);
+		context.scale(pixelRatio, pixelRatio);
+		applyStyles(context, {
+			...options,
+			shadowBlur: (options.shadowBlur ?? 0) * pixelRatio,
+			shadowOffsetX: (options.shadowOffsetX ?? 0) * pixelRatio,
+			shadowOffsetY: (options.shadowOffsetY ?? 0) * pixelRatio
+		});
 		context.translate(-renderBounds.x, -renderBounds.y);
 		if (options.fillStyle) context.fill(this.#path);
 		if (options.strokeStyle) context.stroke(this.#path);
@@ -1095,9 +1103,11 @@ var Shape = class {
 	/**
 	* Renders the shape.
 	* @param {RenderOptions} [options={}] The rendering options.
+	* @param {number} [pixelRatio=1] The number of rendered pixels per geometry unit.
 	* @returns {HTMLCanvasElement} The rendered canvas.
 	*/
-	render(options = {}) {
+	render(options = {}, pixelRatio = 1) {
+		if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) throw new RangeError("Render pixel ratio must be a positive, finite number.");
 		const canvas = (this.#context.canvas?.ownerDocument ?? globalThis.document).createElement("canvas");
 		if (!this.#layers.length) {
 			canvas.width = 0;
@@ -1107,8 +1117,9 @@ var Shape = class {
 		const renderBounds = getRenderBounds(this.getBoundingBox(), options);
 		const context = canvas.getContext("2d");
 		if (!context) throw new Error("Unable to create a 2D canvas context.");
-		canvas.width = renderBounds.width;
-		canvas.height = renderBounds.height;
+		canvas.width = Math.ceil(renderBounds.width * pixelRatio);
+		canvas.height = Math.ceil(renderBounds.height * pixelRatio);
+		context.scale(pixelRatio, pixelRatio);
 		context.translate(this.x - renderBounds.x, this.y - renderBounds.y);
 		context.translate(this.anchorX, this.anchorY);
 		context.rotate(this.angle);
@@ -1126,8 +1137,8 @@ var Shape = class {
 				layerOptions = options;
 			}
 			const layerBounds = getRenderBounds(path.getBoundingBox(), layerOptions);
-			const layerCanvas = path.render(layerOptions);
-			context.drawImage(layerCanvas, layerBounds.x, layerBounds.y);
+			const layerCanvas = path.render(layerOptions, pixelRatio);
+			context.drawImage(layerCanvas, layerBounds.x, layerBounds.y, layerCanvas.width / pixelRatio, layerCanvas.height / pixelRatio);
 		}
 		return canvas;
 	}
@@ -1817,9 +1828,12 @@ var CanvasContext = class {
 	* @returns {CanvasContext} The CanvasContext.
 	*/
 	#drawGeometry(geometry, x, y) {
+		const { a, b, c, d } = this.#context.getTransform();
+		const pixelRatio = Math.max(1, Math.hypot(a, b), Math.hypot(c, d));
 		const bounds = getRenderBounds(geometry.getBoundingBox(), this.#options);
-		const canvas = geometry.render(this.#options);
-		return this.drawImage(canvas, bounds.x + x, bounds.y + y);
+		const canvas = geometry.render(this.#options, pixelRatio);
+		this.#context.drawImage(canvas, bounds.x + x, bounds.y + y, canvas.width / pixelRatio, canvas.height / pixelRatio);
+		return this;
 	}
 };
 

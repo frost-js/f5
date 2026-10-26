@@ -362,9 +362,14 @@ export default class Path {
     /**
      * Renders the path.
      * @param {RenderOptions} [options={}] The rendering options.
+     * @param {number} [pixelRatio=1] The number of rendered pixels per geometry unit.
      * @returns {HTMLCanvasElement} The rendered canvas.
      */
-    render(options = {}) {
+    render(options = {}, pixelRatio = 1) {
+        if (!Number.isFinite(pixelRatio) || pixelRatio <= 0) {
+            throw new RangeError('Render pixel ratio must be a positive, finite number.');
+        }
+
         const bounds = this.getBoundingBox();
         const renderBounds = getRenderBounds(bounds, options);
         const ownerDocument = this.#context.canvas?.ownerDocument ?? globalThis.document;
@@ -375,10 +380,17 @@ export default class Path {
             throw new Error('Unable to create a 2D canvas context.');
         }
 
-        canvas.width = renderBounds.width;
-        canvas.height = renderBounds.height;
+        canvas.width = Math.ceil(renderBounds.width * pixelRatio);
+        canvas.height = Math.ceil(renderBounds.height * pixelRatio);
 
-        applyStyles(context, options);
+        context.scale(pixelRatio, pixelRatio);
+
+        applyStyles(context, {
+            ...options,
+            shadowBlur: (options.shadowBlur ?? 0) * pixelRatio,
+            shadowOffsetX: (options.shadowOffsetX ?? 0) * pixelRatio,
+            shadowOffsetY: (options.shadowOffsetY ?? 0) * pixelRatio,
+        });
         context.translate(-renderBounds.x, -renderBounds.y);
 
         if (options.fillStyle) {
