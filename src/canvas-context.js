@@ -1,5 +1,9 @@
 /** @import { RenderOptions } from './render.js'; */
 
+import Path from './path.js';
+import { applyStyles, getRenderBounds } from './render.js';
+import Shape from './shape.js';
+
 /**
  * @typedef {object} TextOptions
  * @property {string} [font='sans-serif'] The font family.
@@ -11,14 +15,26 @@
 
 /** @typedef {RenderOptions & TextOptions} CanvasContextOptions */
 
-import Path from './path.js';
-import { applyStyles, getRenderBounds } from './render.js';
-import Shape from './shape.js';
-
 /**
- * CanvasContext
+ * Provides chainable drawing, styling, and transforms for a 2D canvas.
  */
 export default class CanvasContext {
+    /** @type {Readonly<CanvasContextOptions>} */
+    static defaults = Object.freeze({
+        fillStyle: null,
+        font: 'sans-serif',
+        fontSize: 10,
+        fontWeight: null,
+        lineWidth: 1,
+        shadowBlur: 0,
+        shadowColor: null,
+        shadowOffsetX: 0,
+        shadowOffsetY: 0,
+        strokeStyle: '#000',
+        textAlign: 'start',
+        textBaseline: 'alphabetic',
+    });
+
     #context;
     #hasVertex;
     #node;
@@ -26,11 +42,13 @@ export default class CanvasContext {
     #states;
 
     /**
-     * New CanvasContext constructor.
+     * Creates a CanvasContext.
      * @param {HTMLCanvasElement} node The canvas node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
      * @param {CanvasContextOptions} [options={}] The canvas options.
+     * @throws {TypeError} When the node does not provide a 2D canvas context.
+     * @throws {RangeError} When a canvas dimension is negative or non-finite.
      */
     constructor(node, width = 600, height = 400, options = {}) {
         this.#node = node;
@@ -52,7 +70,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Apply a matrix transform.
+     * Applies a matrix transform.
      * @param {number} a The horizontal scaling amount.
      * @param {number} b The vertical skewing.
      * @param {number} c The horizontal skewing.
@@ -68,7 +86,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw an arc.
+     * Draws an arc.
      * @param {number} x The X position of the arc center.
      * @param {number} y The Y position of the arc center.
      * @param {number} radius The arc radius.
@@ -85,8 +103,8 @@ export default class CanvasContext {
     }
 
     /**
-     * Fill the entire canvas with a color.
-     * @param {string|CanvasGradient} color The color/gradient.
+     * Fills the entire canvas with a color.
+     * @param {string|CanvasGradient|CanvasPattern} color The color, gradient, or pattern.
      * @returns {CanvasContext} The CanvasContext.
      */
     background(color) {
@@ -99,7 +117,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Begin a path.
+     * Begins a path.
      * @returns {CanvasContext} The CanvasContext.
      */
     begin() {
@@ -110,7 +128,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a bezier curve.
+     * Draws a bezier curve.
      * @param {number} x1 The start X position.
      * @param {number} y1 The start Y position.
      * @param {number} cx1 The first control point X position.
@@ -129,7 +147,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Add a bezier vertex.
+     * Adds a bezier vertex.
      * @param {number} cx1 The first control point X position.
      * @param {number} cy1 The first control point Y position.
      * @param {number} cx2 The second control point X position.
@@ -145,7 +163,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a circle.
+     * Draws a circle.
      * @param {number} x The X position of the circle center.
      * @param {number} y The Y position of the circle center.
      * @param {number} radius The circle radius.
@@ -156,19 +174,20 @@ export default class CanvasContext {
     }
 
     /**
-     * Clear the entire canvas.
+     * Clears the entire canvas.
      * @returns {CanvasContext} The CanvasContext.
      */
     clear() {
         this.push();
         this.resetMatrix();
+
         this.#context.clearRect(0, 0, this.width, this.height);
 
         return this.pop();
     }
 
     /**
-     * Create a new Path.
+     * Creates a new Path.
      * @returns {Path} The Path.
      */
     createPath() {
@@ -176,7 +195,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Create a new Shape.
+     * Creates a new Shape.
      * @param {number} [x=0] The global X position.
      * @param {number} [y=0] The global Y position.
      * @param {number} [angle=0] The rotation angle.
@@ -189,7 +208,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a curve.
+     * Draws a curve.
      * @param {number} x1 The start X position.
      * @param {number} y1 The start Y position.
      * @param {number} cx1 The first control point X position.
@@ -207,7 +226,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Add a curve vertex.
+     * Adds a curve vertex.
      * @param {number} cx1 The first control point X position.
      * @param {number} cy1 The first control point Y position.
      * @param {number} cx2 The second control point X position.
@@ -222,10 +241,10 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw an image on the canvas.
+     * Draws an image on the canvas.
      * @param {HTMLImageElement|SVGImageElement|HTMLVideoElement|HTMLCanvasElement|ImageBitmap|OffscreenCanvas|VideoFrame} image The image.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
+     * @param {number} [x=0] The X position.
+     * @param {number} [y=0] The Y position.
      * @returns {CanvasContext} The CanvasContext.
      */
     drawImage(image, x = 0, y = 0) {
@@ -235,10 +254,10 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a Path on the canvas.
+     * Draws a Path on the canvas.
      * @param {Path} path The Path.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
+     * @param {number} [x=0] The X position.
+     * @param {number} [y=0] The Y position.
      * @returns {CanvasContext} The CanvasContext.
      */
     drawPath(path, x = 0, y = 0) {
@@ -249,22 +268,21 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a Shape on the canvas.
+     * Draws a Shape on the canvas.
      * @param {Shape} shape The Shape.
-     * @param {number} x The X position.
-     * @param {number} y The Y position.
+     * @param {number} [x=0] The X position.
+     * @param {number} [y=0] The Y position.
      * @returns {CanvasContext} The CanvasContext.
      */
     drawShape(shape, x = 0, y = 0) {
         const bounds = getRenderBounds(shape.getBoundingBox(), this.#options);
-
         const canvas = shape.render(this.#options);
 
         return this.drawImage(canvas, bounds.x + x, bounds.y + y);
     }
 
     /**
-     * Draw an ellipse.
+     * Draws an ellipse.
      * @param {number} x The X position of the ellipse center.
      * @param {number} y The Y position of the ellipse center.
      * @param {number} width The ellipse width.
@@ -296,12 +314,13 @@ export default class CanvasContext {
     }
 
     /**
-     * Erase a path from the Canvas.
+     * Erases a path from the Canvas.
      * @param {(path: Path) => void} callback The callback to generate the path.
      * @returns {CanvasContext} The CanvasContext.
      */
     erase(callback) {
         const path = this.createPath();
+
         callback(path);
 
         this.push();
@@ -310,6 +329,7 @@ export default class CanvasContext {
         this.noStroke();
         this.noShadow();
         this.fill('#000');
+
         this.#applyStyles();
         this.drawPath(path);
 
@@ -317,8 +337,8 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the fill color/style.
-     * @param {string|CanvasGradient} color The color/gradient.
+     * Sets the fill color/style.
+     * @param {string|CanvasGradient|CanvasPattern} color The color, gradient, or pattern.
      * @returns {CanvasContext} The CanvasContext.
      */
     fill(color) {
@@ -328,7 +348,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the font family.
+     * Sets the font family.
      * @param {string} font The font family.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -339,7 +359,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the font size.
+     * Sets the font size.
      * @param {number} size The font size.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -350,7 +370,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the font weight.
+     * Sets the font weight.
      * @param {string|number} weight The font weight.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -361,7 +381,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Get the canvas image data.
+     * Gets the canvas image data.
      * @param {number} sx The X offset.
      * @param {number} sy The Y offset.
      * @param {number} sw The width.
@@ -373,7 +393,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Get the active canvas options.
+     * Gets the active canvas options.
      * @returns {CanvasContextOptions} A copy of the active options.
      */
     getOptions() {
@@ -383,7 +403,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a line.
+     * Draws a line.
      * @param {number} x1 The start X position.
      * @param {number} y1 The start Y position.
      * @param {number} x2 The end X position.
@@ -398,7 +418,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Create a linear gradient.
+     * Creates a linear gradient.
      * @param {number} x1 The starting X position.
      * @param {number} y1 The starting Y position.
      * @param {number} x2 The ending X position.
@@ -410,7 +430,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Remove the fill color/style.
+     * Removes the fill color/style.
      * @returns {CanvasContext} The CanvasContext.
      */
     noFill() {
@@ -420,7 +440,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Remove the shadow.
+     * Removes the shadow.
      * @returns {CanvasContext} The CanvasContext.
      */
     noShadow() {
@@ -430,7 +450,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Remove the stroke.
+     * Removes the stroke.
      * @returns {CanvasContext} The CanvasContext.
      */
     noStroke() {
@@ -440,7 +460,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a point.
+     * Draws a point.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @returns {CanvasContext} The CanvasContext.
@@ -457,7 +477,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Restore the previous canvas settings and transformation.
+     * Restores the previous canvas settings and transformation.
      * @returns {CanvasContext} The CanvasContext.
      */
     pop() {
@@ -470,7 +490,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Save the canvas settings and transformation.
+     * Saves the canvas settings and transformation.
      * @returns {CanvasContext} The CanvasContext.
      */
     push() {
@@ -481,14 +501,14 @@ export default class CanvasContext {
     }
 
     /**
-     * Put image data on the canvas.
+     * Puts image data on the canvas.
      * @param {ImageData} image The image data.
      * @param {number} dx The X position.
-     * @param {number} dy The Y  position.
-     * @param {number} dirtyX The X offset.
-     * @param {number} dirtyY The Y offset.
-     * @param {number} dirtyWidth The width.
-     * @param {number} dirtyHeight The height.
+     * @param {number} dy The Y position.
+     * @param {number} [dirtyX] The dirty region X offset.
+     * @param {number} [dirtyY] The dirty region Y offset.
+     * @param {number} [dirtyWidth] The dirty region width.
+     * @param {number} [dirtyHeight] The dirty region height.
      * @returns {CanvasContext} The CanvasContext.
      */
     putImage(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) {
@@ -502,7 +522,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a quadrilateral.
+     * Draws a quadrilateral.
      * @param {number} x1 The first point X position.
      * @param {number} y1 The first point Y position.
      * @param {number} x2 The second point X position.
@@ -523,7 +543,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Add a quadratic vertex.
+     * Adds a quadratic vertex.
      * @param {number} cx The control point X position.
      * @param {number} cy The control point Y position.
      * @param {number} x The X position.
@@ -537,7 +557,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Create a radial gradient.
+     * Creates a radial gradient.
      * @param {number} x1 The starting X position.
      * @param {number} y1 The starting Y position.
      * @param {number} r1 The starting radius.
@@ -551,7 +571,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a rectangle.
+     * Draws a rectangle.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @param {number} width The rectangle width.
@@ -567,7 +587,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Reset the canvas settings and transformation.
+     * Resets the canvas settings and transformation.
      * @returns {CanvasContext} The CanvasContext.
      */
     reset() {
@@ -579,7 +599,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Reset the canvas transformation matrix.
+     * Resets the canvas transformation matrix.
      * @returns {CanvasContext} The CanvasContext.
      */
     resetMatrix() {
@@ -589,7 +609,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Resize the canvas.
+     * Resizes the canvas.
      * @param {number} w The width.
      * @param {number} h The height.
      * @returns {CanvasContext} The CanvasContext.
@@ -601,10 +621,13 @@ export default class CanvasContext {
 
         this.width = w;
         this.height = h;
+
         this.#node.setAttribute('width', this.width);
         this.#node.setAttribute('height', this.height);
+
         this.#states = [];
         this.#hasVertex = false;
+
         this.#applyStyles();
         this.#context.textAlign = this.#options.textAlign;
         this.#context.textBaseline = this.#options.textBaseline;
@@ -613,7 +636,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Rotate the canvas.
+     * Rotates the canvas.
      * @param {number} angle The rotation angle.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -626,7 +649,7 @@ export default class CanvasContext {
     /**
      * Scale the canvas.
      * @param {number} x The horizontal scaling.
-     * @param {number} [y] The vertical scaling.
+     * @param {number} [y=x] The vertical scaling.
      * @returns {CanvasContext} The CanvasContext.
      */
     scale(x, y = x) {
@@ -636,7 +659,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the shadow color.
+     * Sets the shadow color.
      * @param {string|CanvasGradient} color The color.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -647,7 +670,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the shadow blur amount.
+     * Sets the shadow blur amount.
      * @param {number} amount The blur amount.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -658,7 +681,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the shadow x/y offset.
+     * Sets the shadow x/y offset.
      * @param {number} [x=0] The X offset.
      * @param {number} [y=0] The Y offset.
      * @returns {CanvasContext} The CanvasContext.
@@ -671,7 +694,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a square.
+     * Draws a square.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @param {number} size The square size.
@@ -682,8 +705,8 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the stroke color/style.
-     * @param {string|CanvasGradient} color The color/gradient.
+     * Sets the stroke color/style.
+     * @param {string|CanvasGradient|CanvasPattern} color The color, gradient, or pattern.
      * @returns {CanvasContext} The CanvasContext.
      */
     stroke(color) {
@@ -693,7 +716,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the stroke width.
+     * Sets the stroke width.
      * @param {number} width The width.
      * @returns {CanvasContext} The CanvasContext.
      */
@@ -704,7 +727,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw text to the canvas.
+     * Draws text to the canvas.
      * @param {string} text The text to draw.
      * @param {number} x The X position.
      * @param {number} y The Y position.
@@ -738,8 +761,8 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the text alignment.
-     * @param {string} alignment The text alignment.
+     * Sets the text alignment.
+     * @param {CanvasTextAlign} alignment The horizontal text alignment.
      * @returns {CanvasContext} The CanvasContext.
      */
     textAlign(alignment) {
@@ -749,8 +772,8 @@ export default class CanvasContext {
     }
 
     /**
-     * Set the text baseline.
-     * @param {string} baseline The text baseline.
+     * Sets the text baseline.
+     * @param {CanvasTextBaseline} baseline The vertical text alignment.
      * @returns {CanvasContext} The CanvasContext.
      */
     textBaseline(baseline) {
@@ -760,7 +783,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Translate the canvas origin.
+     * Translates the canvas origin.
      * @param {number} x The X offset.
      * @param {number} y The Y offset.
      * @returns {CanvasContext} The CanvasContext.
@@ -772,7 +795,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Draw a triangle.
+     * Draws a triangle.
      * @param {number} x1 The first X position.
      * @param {number} y1 The first Y position.
      * @param {number} x2 The second X position.
@@ -790,7 +813,7 @@ export default class CanvasContext {
     }
 
     /**
-     * Add a vertex.
+     * Adds a vertex.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @returns {CanvasContext} The CanvasContext.
@@ -807,14 +830,14 @@ export default class CanvasContext {
     }
 
     /**
-     * Update the canvas context.
+     * Updates the canvas context.
      */
     #applyStyles() {
         applyStyles(this.#context, this.#options);
     }
 
     /**
-     * Draw to the canvas.
+     * Draws to the canvas.
      */
     #draw() {
         this.#applyStyles();
@@ -828,19 +851,3 @@ export default class CanvasContext {
         }
     }
 }
-
-/** @type {Readonly<CanvasContextOptions>} */
-CanvasContext.defaults = Object.freeze({
-    fillStyle: null,
-    font: 'sans-serif',
-    fontSize: 10,
-    fontWeight: null,
-    lineWidth: 1,
-    shadowBlur: 0,
-    shadowColor: null,
-    shadowOffsetX: 0,
-    shadowOffsetY: 0,
-    strokeStyle: '#000',
-    textAlign: 'start',
-    textBaseline: 'alphabetic',
-});

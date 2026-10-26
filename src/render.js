@@ -22,23 +22,6 @@
  */
 
 /**
- * Creates an empty axis-aligned bounding box.
- * @returns {Bounds} A zero-sized box at the origin.
- */
-export function emptyBounds() {
-    return {
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0,
-        x: 0,
-        y: 0,
-        width: 0,
-        height: 0,
-    };
-}
-
-/**
  * Applies shared fill, stroke, and shadow options to a context.
  * @param {CanvasRenderingContext2D} context The drawing context.
  * @param {RenderOptions} [options={}] The rendering styles.
@@ -57,6 +40,23 @@ export function applyStyles(context, options = {}) {
     context.shadowColor = options.shadowColor ?? 'transparent';
     context.shadowOffsetX = options.shadowOffsetX ?? 0;
     context.shadowOffsetY = options.shadowOffsetY ?? 0;
+}
+
+/**
+ * Creates an empty axis-aligned bounding box.
+ * @returns {Bounds} A zero-sized box at the origin.
+ */
+export function emptyBounds() {
+    return {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+    };
 }
 
 /**

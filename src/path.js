@@ -9,7 +9,7 @@ import {
 import { applyStyles, emptyBounds, getRenderBounds } from './render.js';
 
 /**
- * Path
+ * Stores reusable path geometry with bounds, hit testing, and rendering.
  */
 export default class Path {
     #bounding;
@@ -22,8 +22,9 @@ export default class Path {
     #subpathStartY;
 
     /**
-     * New Path constructor.
+     * Creates a Path.
      * @param {CanvasRenderingContext2D} context The canvas context.
+     * @throws {TypeError} When hit testing or Path2D is unavailable.
      */
     constructor(context) {
         if (!context || typeof context.isPointInPath !== 'function') {
@@ -37,6 +38,7 @@ export default class Path {
         this.#context = context;
 
         this.#path = new Path2D();
+
         this.#hasVertex = false;
         this.#currentX = null;
         this.#currentY = null;
@@ -52,7 +54,7 @@ export default class Path {
     }
 
     /**
-     * Add an arc.
+     * Adds an arc.
      * @param {number} x The X position of the arc center.
      * @param {number} y The Y position of the arc center.
      * @param {number} radius The arc radius.
@@ -64,6 +66,7 @@ export default class Path {
         const startsSubpath = !this.#hasVertex;
 
         this.#path.arc(x, y, radius, startAngle, endAngle);
+
         this.#setBoundsFromPoints(getArcBoundsPoints(x, y, radius, startAngle, endAngle));
 
         if (startsSubpath) {
@@ -80,7 +83,7 @@ export default class Path {
     }
 
     /**
-     * Add a bezier curve.
+     * Adds a bezier curve.
      * @param {number} x1 The start X position.
      * @param {number} y1 The start Y position.
      * @param {number} cx1 The first control point X position.
@@ -94,6 +97,7 @@ export default class Path {
     bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2) {
         this.#moveTo(x1, y1);
         this.#path.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
+
         this.#setBoundsFromPoints(getCubicBoundsPoints(x1, y1, cx1, cy1, cx2, cy2, x2, y2));
         this.#setCurrentPoint(x2, y2, false);
 
@@ -101,7 +105,7 @@ export default class Path {
     }
 
     /**
-     * Add a bezier vertex.
+     * Adds a bezier vertex.
      * @param {number} cx1 The first control point X position.
      * @param {number} cy1 The first control point Y position.
      * @param {number} cx2 The second control point X position.
@@ -115,6 +119,7 @@ export default class Path {
         const startY = this.#currentY ?? cy1;
 
         this.#path.bezierCurveTo(cx1, cy1, cx2, cy2, x, y);
+
         this.#setBoundsFromPoints(
             this.#hasVertex ?
                 getCubicBoundsPoints(startX, startY, cx1, cy1, cx2, cy2, x, y) :
@@ -130,7 +135,7 @@ export default class Path {
     }
 
     /**
-     * Add a circle.
+     * Adds a circle.
      * @param {number} x The X position of the circle center.
      * @param {number} y The Y position of the circle center.
      * @param {number} radius The circle radius.
@@ -141,7 +146,7 @@ export default class Path {
     }
 
     /**
-     * Close the path.
+     * Closes the path.
      * @returns {Path} The Path.
      */
     close() {
@@ -157,17 +162,17 @@ export default class Path {
     }
 
     /**
-     * Determine if the path contains a point.
+     * Determines if the path contains a point.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @returns {boolean} TRUE if the path contains the point, otherwise FALSE.
+     * @returns {boolean} Whether the point lies inside the path.
      */
     containsPoint(x, y) {
         return this.#context.isPointInPath(this.#path, x, y);
     }
 
     /**
-     * Add a curve.
+     * Adds a curve.
      * @param {number} x1 The start X position.
      * @param {number} y1 The start Y position.
      * @param {number} cx1 The first control point X position.
@@ -195,7 +200,7 @@ export default class Path {
     }
 
     /**
-     * Add a curve vertex.
+     * Adds a curve vertex.
      * @param {number} cx1 The first control point X position.
      * @param {number} cy1 The first control point Y position.
      * @param {number} cx2 The second control point X position.
@@ -224,7 +229,7 @@ export default class Path {
     }
 
     /**
-     * Add an ellipse.
+     * Adds an ellipse.
      * @param {number} x The X position of the ellipse center.
      * @param {number} y The Y position of the ellipse center.
      * @param {number} width The ellipse width.
@@ -249,7 +254,7 @@ export default class Path {
     }
 
     /**
-     * Get the bounding box of the path.
+     * Gets the bounding box of the path.
      * @returns {Bounds} The bounding box.
      */
     getBoundingBox() {
@@ -275,7 +280,7 @@ export default class Path {
     }
 
     /**
-     * Add a line.
+     * Adds a line.
      * @param {number} x1 The start X position.
      * @param {number} y1 The start Y position.
      * @param {number} x2 The end X position.
@@ -293,7 +298,7 @@ export default class Path {
     }
 
     /**
-     * Add a quadrilateral.
+     * Adds a quadrilateral.
      * @param {number} x1 The first point X position.
      * @param {number} y1 The first point Y position.
      * @param {number} x2 The second point X position.
@@ -319,7 +324,7 @@ export default class Path {
     }
 
     /**
-     * Add a quadratic vertex.
+     * Adds a quadratic vertex.
      * @param {number} cx The control point X position.
      * @param {number} cy The control point Y position.
      * @param {number} x The X position.
@@ -331,6 +336,7 @@ export default class Path {
         const startY = this.#currentY ?? cy;
 
         this.#path.quadraticCurveTo(cx, cy, x, y);
+
         this.#setBoundsFromPoints(
             this.#hasVertex ?
                 getQuadraticBoundsPoints(startX, startY, cx, cy, x, y) :
@@ -345,7 +351,7 @@ export default class Path {
     }
 
     /**
-     * Add a rectangle.
+     * Adds a rectangle.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @param {number} width The rectangle width.
@@ -362,7 +368,7 @@ export default class Path {
     }
 
     /**
-     * Render the path.
+     * Renders the path.
      * @param {RenderOptions} [options={}] The rendering options.
      * @returns {HTMLCanvasElement} The rendered canvas.
      */
@@ -394,7 +400,7 @@ export default class Path {
     }
 
     /**
-     * Add a square.
+     * Adds a square.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @param {number} size The square size.
@@ -405,7 +411,7 @@ export default class Path {
     }
 
     /**
-     * Add a triangle.
+     * Adds a triangle.
      * @param {number} x1 The first X position.
      * @param {number} y1 The first Y position.
      * @param {number} x2 The second X position.
@@ -428,7 +434,7 @@ export default class Path {
     }
 
     /**
-     * Add a vertex.
+     * Adds a vertex.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @returns {Path} The Path.
@@ -457,9 +463,9 @@ export default class Path {
     }
 
     /**
-     * Set the path bounds.
-     * @param {number[]} xs The X co-ordinates.
-     * @param {number[]} ys The Y co-ordinates.
+     * Sets the path bounds.
+     * @param {number[]} xs The X coordinates.
+     * @param {number[]} ys The Y coordinates.
      */
     #setBounds(xs, ys) {
         this.#bounding.top = Math.min(this.#bounding.top, ...ys);
@@ -469,7 +475,7 @@ export default class Path {
     }
 
     /**
-     * Set the path bounds from points.
+     * Sets the path bounds from points.
      * @param {{x: number, y: number}[]} points The points to include.
      */
     #setBoundsFromPoints(points) {
@@ -480,7 +486,7 @@ export default class Path {
     }
 
     /**
-     * Set the current point.
+     * Sets the current point.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @param {boolean} [resetSubpath=false] Whether to reset the subpath start.

@@ -5,6 +5,20 @@
 })(this, function(exports) {
 Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 // src/path-bounds.js
+/**
+	* @typedef {object} Point
+	* @property {number} x The X coordinate.
+	* @property {number} y The Y coordinate.
+	*/
+	/**
+	* @typedef {object} ArcSegment
+	* @property {Point} center The circle center.
+	* @property {boolean} counterClockwise Whether the arc runs counterclockwise.
+	* @property {number} endAngle The end angle in radians.
+	* @property {Point} endTangent The outgoing tangent point.
+	* @property {number} startAngle The start angle in radians.
+	* @property {Point} startTangent The incoming tangent point.
+	*/
 	var EPSILON = 1e-10;
 	var TAU = Math.PI * 2;
 	var CARDINAL_ANGLES = [
@@ -13,31 +27,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		Math.PI,
 		Math.PI * 1.5
 	];
-	function normalizeAngle(angle) {
-		const normalized = angle % TAU;
-		return normalized < 0 ? normalized + TAU : normalized;
-	}
-	function getArcSweep(startAngle, endAngle, counterClockwise) {
-		const start = normalizeAngle(startAngle);
-		const end = normalizeAngle(endAngle);
-		let sweep = counterClockwise ? start - end : end - start;
-		if (sweep < 0) sweep += TAU;
-		return sweep;
-	}
-	function isAngleWithinArc(startAngle, endAngle, angle, counterClockwise) {
-		const start = normalizeAngle(startAngle);
-		const target = normalizeAngle(angle);
-		const sweep = getArcSweep(startAngle, endAngle, counterClockwise);
-		if (sweep <= EPSILON) return Math.abs(target - start) <= EPSILON;
-		let delta = counterClockwise ? start - target : target - start;
-		if (delta < 0) delta += TAU;
-		return delta <= sweep + EPSILON;
-	}
-	function pointOnCircle(x, y, radius, angle) {
-		return {
-			x: x + Math.cos(angle) * radius,
-			y: y + Math.sin(angle) * radius
-		};
+	/**
+	* Calculates the dot product of two coordinate vectors.
+	* @param {Point} a The first vector.
+	* @param {Point} b The second vector.
+	* @returns {number} The dot product.
+	*/
+	function dot(a, b) {
+		return a.x * b.x + a.y * b.y;
 	}
 	/**
 	* Returns endpoints and cardinal extrema along a circular arc.
@@ -47,7 +44,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	* @param {number} startAngle Start angle in radians.
 	* @param {number} endAngle End angle in radians.
 	* @param {boolean} [counterClockwise=false] Whether the arc runs counterclockwise.
-	* @returns {Array<{x: number, y: number}>} Points enclosing the drawn curve.
+	* @returns {Point[]} Points enclosing the drawn curve.
 	*/
 	function getArcBoundsPoints(x, y, radius, startAngle, endAngle, counterClockwise = false) {
 		const points = [pointOnCircle(x, y, radius, startAngle), pointOnCircle(x, y, radius, endAngle)];
@@ -58,94 +55,52 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		for (const angle of CARDINAL_ANGLES) if (isAngleWithinArc(startAngle, endAngle, angle, counterClockwise)) points.push(pointOnCircle(x, y, radius, angle));
 		return points;
 	}
-	function getQuadraticValue(p0, p1, p2, t) {
-		const inverse = 1 - t;
-		return inverse * inverse * p0 + 2 * inverse * t * p1 + t * t * p2;
-	}
-	function getQuadraticExtrema(p0, p1, p2) {
-		const denominator = p0 - 2 * p1 + p2;
-		if (Math.abs(denominator) <= EPSILON) return [];
-		const t = (p0 - p1) / denominator;
-		return t > EPSILON && t < .9999999999 ? [t] : [];
+	/**
+	* Calculates the normalized sweep between two angles.
+	* @param {number} startAngle The start angle in radians.
+	* @param {number} endAngle The end angle in radians.
+	* @param {boolean} counterClockwise Whether the arc runs counterclockwise.
+	* @returns {number} The sweep in radians, in the range [0, 2π).
+	*/
+	function getArcSweep(startAngle, endAngle, counterClockwise) {
+		const start = normalizeAngle(startAngle);
+		const end = normalizeAngle(endAngle);
+		let sweep = counterClockwise ? start - end : end - start;
+		if (sweep < 0) sweep += TAU;
+		return sweep;
 	}
 	/**
-	* Returns endpoints and extrema of a quadratic Bezier curve.
-	* @param {number} startX Start X coordinate.
-	* @param {number} startY Start Y coordinate.
-	* @param {number} controlX Control X coordinate.
-	* @param {number} controlY Control Y coordinate.
-	* @param {number} endX End X coordinate.
-	* @param {number} endY End Y coordinate.
-	* @returns {Array<{x: number, y: number}>} Points enclosing the drawn curve.
+	* Calculates tangent-arc bounds and the resulting current point.
+	* @param {Point} start Current path position.
+	* @param {Point} corner Intersection of the tangent lines.
+	* @param {Point} end Point on the outgoing tangent.
+	* @param {number} radius Arc radius.
+	* @returns {{currentPoint: Point, points: Point[]}} The endpoint and points enclosing the arc.
 	*/
-	function getQuadraticBoundsPoints(startX, startY, controlX, controlY, endX, endY) {
-		return [.../* @__PURE__ */ new Set([
-			0,
-			1,
-			...getQuadraticExtrema(startX, controlX, endX),
-			...getQuadraticExtrema(startY, controlY, endY)
-		])].map((t) => ({
-			x: getQuadraticValue(startX, controlX, endX, t),
-			y: getQuadraticValue(startY, controlY, endY, t)
-		}));
-	}
-	function getCubicValue(p0, p1, p2, p3, t) {
-		const inverse = 1 - t;
-		return inverse * inverse * inverse * p0 + 3 * inverse * inverse * t * p1 + 3 * inverse * t * t * p2 + t * t * t * p3;
-	}
-	function getCubicExtrema(p0, p1, p2, p3) {
-		const a = -p0 + 3 * p1 - 3 * p2 + p3;
-		const b = 3 * p0 - 6 * p1 + 3 * p2;
-		const c = -3 * p0 + 3 * p1;
-		if (Math.abs(a) <= EPSILON) {
-			if (Math.abs(b) <= EPSILON) return [];
-			const t = -c / (2 * b);
-			return t > EPSILON && t < .9999999999 ? [t] : [];
-		}
-		const derivativeA = 3 * a;
-		const derivativeB = 2 * b;
-		const discriminant = derivativeB * derivativeB - 4 * derivativeA * c;
-		if (discriminant < -1e-10) return [];
-		if (Math.abs(discriminant) <= EPSILON) {
-			const t = -derivativeB / (2 * derivativeA);
-			return t > EPSILON && t < .9999999999 ? [t] : [];
-		}
-		const sqrt = Math.sqrt(discriminant);
-		return [(-derivativeB + sqrt) / (2 * derivativeA), (-derivativeB - sqrt) / (2 * derivativeA)].filter((t) => t > EPSILON && t < .9999999999);
-	}
-	/**
-	* Returns endpoints and extrema of a cubic Bezier curve.
-	* @param {number} startX Start X coordinate.
-	* @param {number} startY Start Y coordinate.
-	* @param {number} control1X First control X coordinate.
-	* @param {number} control1Y First control Y coordinate.
-	* @param {number} control2X Second control X coordinate.
-	* @param {number} control2Y Second control Y coordinate.
-	* @param {number} endX End X coordinate.
-	* @param {number} endY End Y coordinate.
-	* @returns {Array<{x: number, y: number}>} Points enclosing the drawn curve.
-	*/
-	function getCubicBoundsPoints(startX, startY, control1X, control1Y, control2X, control2Y, endX, endY) {
-		return [.../* @__PURE__ */ new Set([
-			0,
-			1,
-			...getCubicExtrema(startX, control1X, control2X, endX),
-			...getCubicExtrema(startY, control1Y, control2Y, endY)
-		])].map((t) => ({
-			x: getCubicValue(startX, control1X, control2X, endX, t),
-			y: getCubicValue(startY, control1Y, control2Y, endY, t)
-		}));
-	}
-	function normalizeVector(x, y) {
-		const length = Math.hypot(x, y);
-		return length <= EPSILON ? null : {
-			x: x / length,
-			y: y / length
+	function getArcToBounds(start, corner, end, radius) {
+		const segment = getArcToSegment(start, corner, end, radius);
+		if (!segment) return {
+			currentPoint: corner,
+			points: [start, corner]
+		};
+		return {
+			currentPoint: segment.endTangent,
+			points: [
+				start,
+				segment.startTangent,
+				segment.endTangent,
+				...getArcBoundsPoints(segment.center.x, segment.center.y, radius, segment.startAngle, segment.endAngle, segment.counterClockwise)
+			]
 		};
 	}
-	function dot(a, b) {
-		return a.x * b.x + a.y * b.y;
-	}
+	/**
+	* Resolves the tangent points, center, and direction of a tangent arc.
+	* @param {Point} start The current path position.
+	* @param {Point} corner The intersection of the tangent lines.
+	* @param {Point} end A point on the outgoing tangent.
+	* @param {number} radius The arc radius.
+	* @returns {ArcSegment|null} The arc geometry, or null for a degenerate segment.
+	*/
 	function getArcToSegment(start, corner, end, radius) {
 		if (radius <= 0) return null;
 		const toStart = normalizeVector(start.x - corner.x, start.y - corner.y);
@@ -193,27 +148,166 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		};
 	}
 	/**
-	* Calculates tangent-arc bounds and the resulting current point.
-	* @param {{x: number, y: number}} start Current path position.
-	* @param {{x: number, y: number}} corner Intersection of the tangent lines.
-	* @param {{x: number, y: number}} end Point on the outgoing tangent.
-	* @param {number} radius Arc radius.
-	* @returns {{currentPoint: {x: number, y: number}, points: Array<{x: number, y: number}>}} The endpoint and points enclosing the arc.
+	* Returns endpoints and extrema of a cubic Bezier curve.
+	* @param {number} startX Start X coordinate.
+	* @param {number} startY Start Y coordinate.
+	* @param {number} control1X First control X coordinate.
+	* @param {number} control1Y First control Y coordinate.
+	* @param {number} control2X Second control X coordinate.
+	* @param {number} control2Y Second control Y coordinate.
+	* @param {number} endX End X coordinate.
+	* @param {number} endY End Y coordinate.
+	* @returns {Point[]} Points enclosing the drawn curve.
 	*/
-	function getArcToBounds(start, corner, end, radius) {
-		const segment = getArcToSegment(start, corner, end, radius);
-		if (!segment) return {
-			currentPoint: corner,
-			points: [start, corner]
+	function getCubicBoundsPoints(startX, startY, control1X, control1Y, control2X, control2Y, endX, endY) {
+		return [.../* @__PURE__ */ new Set([
+			0,
+			1,
+			...getCubicExtrema(startX, control1X, control2X, endX),
+			...getCubicExtrema(startY, control1Y, control2Y, endY)
+		])].map((t) => ({
+			x: getCubicValue(startX, control1X, control2X, endX, t),
+			y: getCubicValue(startY, control1Y, control2Y, endY, t)
+		}));
+	}
+	/**
+	* Finds interior parameters where a cubic Bézier coordinate reaches an extremum.
+	* @param {number} p0 The start coordinate.
+	* @param {number} p1 The first control coordinate.
+	* @param {number} p2 The second control coordinate.
+	* @param {number} p3 The end coordinate.
+	* @returns {number[]} The parameters strictly between zero and one.
+	*/
+	function getCubicExtrema(p0, p1, p2, p3) {
+		const a = -p0 + 3 * p1 - 3 * p2 + p3;
+		const b = 3 * p0 - 6 * p1 + 3 * p2;
+		const c = -3 * p0 + 3 * p1;
+		if (Math.abs(a) <= EPSILON) {
+			if (Math.abs(b) <= EPSILON) return [];
+			const t = -c / (2 * b);
+			return t > EPSILON && t < .9999999999 ? [t] : [];
+		}
+		const derivativeA = 3 * a;
+		const derivativeB = 2 * b;
+		const discriminant = derivativeB * derivativeB - 4 * derivativeA * c;
+		if (discriminant < -1e-10) return [];
+		if (Math.abs(discriminant) <= EPSILON) {
+			const t = -derivativeB / (2 * derivativeA);
+			return t > EPSILON && t < .9999999999 ? [t] : [];
+		}
+		const sqrt = Math.sqrt(discriminant);
+		return [(-derivativeB + sqrt) / (2 * derivativeA), (-derivativeB - sqrt) / (2 * derivativeA)].filter((t) => t > EPSILON && t < .9999999999);
+	}
+	/**
+	* Evaluates one coordinate of a cubic Bézier curve.
+	* @param {number} p0 The start coordinate.
+	* @param {number} p1 The first control coordinate.
+	* @param {number} p2 The second control coordinate.
+	* @param {number} p3 The end coordinate.
+	* @param {number} t The parameter along the curve.
+	* @returns {number} The interpolated coordinate.
+	*/
+	function getCubicValue(p0, p1, p2, p3, t) {
+		const inverse = 1 - t;
+		return inverse * inverse * inverse * p0 + 3 * inverse * inverse * t * p1 + 3 * inverse * t * t * p2 + t * t * t * p3;
+	}
+	/**
+	* Returns endpoints and extrema of a quadratic Bezier curve.
+	* @param {number} startX Start X coordinate.
+	* @param {number} startY Start Y coordinate.
+	* @param {number} controlX Control X coordinate.
+	* @param {number} controlY Control Y coordinate.
+	* @param {number} endX End X coordinate.
+	* @param {number} endY End Y coordinate.
+	* @returns {Point[]} Points enclosing the drawn curve.
+	*/
+	function getQuadraticBoundsPoints(startX, startY, controlX, controlY, endX, endY) {
+		return [.../* @__PURE__ */ new Set([
+			0,
+			1,
+			...getQuadraticExtrema(startX, controlX, endX),
+			...getQuadraticExtrema(startY, controlY, endY)
+		])].map((t) => ({
+			x: getQuadraticValue(startX, controlX, endX, t),
+			y: getQuadraticValue(startY, controlY, endY, t)
+		}));
+	}
+	/**
+	* Finds interior parameters where a quadratic Bézier coordinate reaches an extremum.
+	* @param {number} p0 The start coordinate.
+	* @param {number} p1 The control coordinate.
+	* @param {number} p2 The end coordinate.
+	* @returns {number[]} The parameters strictly between zero and one.
+	*/
+	function getQuadraticExtrema(p0, p1, p2) {
+		const denominator = p0 - 2 * p1 + p2;
+		if (Math.abs(denominator) <= EPSILON) return [];
+		const t = (p0 - p1) / denominator;
+		return t > EPSILON && t < .9999999999 ? [t] : [];
+	}
+	/**
+	* Evaluates one coordinate of a quadratic Bézier curve.
+	* @param {number} p0 The start coordinate.
+	* @param {number} p1 The control coordinate.
+	* @param {number} p2 The end coordinate.
+	* @param {number} t The parameter along the curve.
+	* @returns {number} The interpolated coordinate.
+	*/
+	function getQuadraticValue(p0, p1, p2, t) {
+		const inverse = 1 - t;
+		return inverse * inverse * p0 + 2 * inverse * t * p1 + t * t * p2;
+	}
+	/**
+	* Checks whether an angle lies within a directed arc sweep.
+	* @param {number} startAngle The start angle in radians.
+	* @param {number} endAngle The end angle in radians.
+	* @param {number} angle The angle to check in radians.
+	* @param {boolean} counterClockwise Whether the arc runs counterclockwise.
+	* @returns {boolean} Whether the angle lies within the sweep, allowing for numerical tolerance.
+	*/
+	function isAngleWithinArc(startAngle, endAngle, angle, counterClockwise) {
+		const start = normalizeAngle(startAngle);
+		const target = normalizeAngle(angle);
+		const sweep = getArcSweep(startAngle, endAngle, counterClockwise);
+		if (sweep <= EPSILON) return Math.abs(target - start) <= EPSILON;
+		let delta = counterClockwise ? start - target : target - start;
+		if (delta < 0) delta += TAU;
+		return delta <= sweep + EPSILON;
+	}
+	/**
+	* Wraps an angle to one full revolution.
+	* @param {number} angle The angle in radians.
+	* @returns {number} The equivalent angle in the range [0, 2π).
+	*/
+	function normalizeAngle(angle) {
+		const normalized = angle % TAU;
+		return normalized < 0 ? normalized + TAU : normalized;
+	}
+	/**
+	* Normalizes a coordinate vector when its length is nonzero.
+	* @param {number} x The X component.
+	* @param {number} y The Y component.
+	* @returns {Point|null} The unit vector, or null when its length is within numerical tolerance of zero.
+	*/
+	function normalizeVector(x, y) {
+		const length = Math.hypot(x, y);
+		return length <= EPSILON ? null : {
+			x: x / length,
+			y: y / length
 		};
+	}
+	/**
+	* Finds a point on a circle at the supplied angle.
+	* @param {number} x The center X coordinate.
+	* @param {number} y The center Y coordinate.
+	* @param {number} radius The circle radius.
+	* @param {number} angle The angle in radians.
+	* @returns {Point} The point on the circle.
+	*/
+	function pointOnCircle(x, y, radius, angle) {
 		return {
-			currentPoint: segment.endTangent,
-			points: [
-				start,
-				segment.startTangent,
-				segment.endTangent,
-				...getArcBoundsPoints(segment.center.x, segment.center.y, radius, segment.startAngle, segment.endAngle, segment.counterClockwise)
-			]
+			x: x + Math.cos(angle) * radius,
+			y: y + Math.sin(angle) * radius
 		};
 	}
 
@@ -240,6 +334,20 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	* @property {number} [shadowOffsetY=0] The vertical shadow offset.
 	*/
 	/**
+	* Applies shared fill, stroke, and shadow options to a context.
+	* @param {CanvasRenderingContext2D} context The drawing context.
+	* @param {RenderOptions} [options={}] The rendering styles.
+	*/
+	function applyStyles(context, options = {}) {
+		if (options.fillStyle != null) context.fillStyle = options.fillStyle;
+		if (options.strokeStyle != null) context.strokeStyle = options.strokeStyle;
+		context.lineWidth = options.lineWidth ?? 1;
+		context.shadowBlur = options.shadowBlur ?? 0;
+		context.shadowColor = options.shadowColor ?? "transparent";
+		context.shadowOffsetX = options.shadowOffsetX ?? 0;
+		context.shadowOffsetY = options.shadowOffsetY ?? 0;
+	}
+	/**
 	* Creates an empty axis-aligned bounding box.
 	* @returns {Bounds} A zero-sized box at the origin.
 	*/
@@ -254,20 +362,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			width: 0,
 			height: 0
 		};
-	}
-	/**
-	* Applies shared fill, stroke, and shadow options to a context.
-	* @param {CanvasRenderingContext2D} context The drawing context.
-	* @param {RenderOptions} [options={}] The rendering styles.
-	*/
-	function applyStyles(context, options = {}) {
-		if (options.fillStyle != null) context.fillStyle = options.fillStyle;
-		if (options.strokeStyle != null) context.strokeStyle = options.strokeStyle;
-		context.lineWidth = options.lineWidth ?? 1;
-		context.shadowBlur = options.shadowBlur ?? 0;
-		context.shadowColor = options.shadowColor ?? "transparent";
-		context.shadowOffsetX = options.shadowOffsetX ?? 0;
-		context.shadowOffsetY = options.shadowOffsetY ?? 0;
 	}
 	/**
 	* Rounds bounds outward and adds space for strokes and shadows.
@@ -304,7 +398,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 // src/path.js
 /** @import { Bounds, RenderOptions } from './render.js'; */
 	/**
-	* Path
+	* Stores reusable path geometry with bounds, hit testing, and rendering.
 	*/
 	var Path = class {
 		#bounding;
@@ -316,8 +410,9 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		#subpathStartX;
 		#subpathStartY;
 		/**
-		* New Path constructor.
+		* Creates a Path.
 		* @param {CanvasRenderingContext2D} context The canvas context.
+		* @throws {TypeError} When hit testing or Path2D is unavailable.
 		*/
 		constructor(context) {
 			if (!context || typeof context.isPointInPath !== "function") throw new TypeError("Path requires a 2D canvas context.");
@@ -337,7 +432,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			};
 		}
 		/**
-		* Add an arc.
+		* Adds an arc.
 		* @param {number} x The X position of the arc center.
 		* @param {number} y The Y position of the arc center.
 		* @param {number} radius The arc radius.
@@ -357,7 +452,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a bezier curve.
+		* Adds a bezier curve.
 		* @param {number} x1 The start X position.
 		* @param {number} y1 The start Y position.
 		* @param {number} cx1 The first control point X position.
@@ -376,7 +471,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a bezier vertex.
+		* Adds a bezier vertex.
 		* @param {number} cx1 The first control point X position.
 		* @param {number} cy1 The first control point Y position.
 		* @param {number} cx2 The second control point X position.
@@ -407,7 +502,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a circle.
+		* Adds a circle.
 		* @param {number} x The X position of the circle center.
 		* @param {number} y The Y position of the circle center.
 		* @param {number} radius The circle radius.
@@ -417,7 +512,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.ellipse(x, y, radius * 2, radius * 2);
 		}
 		/**
-		* Close the path.
+		* Closes the path.
 		* @returns {Path} The Path.
 		*/
 		close() {
@@ -430,16 +525,16 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Determine if the path contains a point.
+		* Determines if the path contains a point.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
-		* @returns {boolean} TRUE if the path contains the point, otherwise FALSE.
+		* @returns {boolean} Whether the point lies inside the path.
 		*/
 		containsPoint(x, y) {
 			return this.#context.isPointInPath(this.#path, x, y);
 		}
 		/**
-		* Add a curve.
+		* Adds a curve.
 		* @param {number} x1 The start X position.
 		* @param {number} y1 The start Y position.
 		* @param {number} cx1 The first control point X position.
@@ -467,7 +562,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a curve vertex.
+		* Adds a curve vertex.
 		* @param {number} cx1 The first control point X position.
 		* @param {number} cy1 The first control point Y position.
 		* @param {number} cx2 The second control point X position.
@@ -496,7 +591,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add an ellipse.
+		* Adds an ellipse.
 		* @param {number} x The X position of the ellipse center.
 		* @param {number} y The Y position of the ellipse center.
 		* @param {number} width The ellipse width.
@@ -517,7 +612,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Get the bounding box of the path.
+		* Gets the bounding box of the path.
 		* @returns {Bounds} The bounding box.
 		*/
 		getBoundingBox() {
@@ -534,7 +629,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			};
 		}
 		/**
-		* Add a line.
+		* Adds a line.
 		* @param {number} x1 The start X position.
 		* @param {number} y1 The start Y position.
 		* @param {number} x2 The end X position.
@@ -549,7 +644,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a quadrilateral.
+		* Adds a quadrilateral.
 		* @param {number} x1 The first point X position.
 		* @param {number} y1 The first point Y position.
 		* @param {number} x2 The second point X position.
@@ -582,7 +677,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a quadratic vertex.
+		* Adds a quadratic vertex.
 		* @param {number} cx The control point X position.
 		* @param {number} cy The control point Y position.
 		* @param {number} x The X position.
@@ -604,7 +699,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a rectangle.
+		* Adds a rectangle.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @param {number} width The rectangle width.
@@ -618,7 +713,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Render the path.
+		* Renders the path.
 		* @param {RenderOptions} [options={}] The rendering options.
 		* @returns {HTMLCanvasElement} The rendered canvas.
 		*/
@@ -637,7 +732,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return canvas;
 		}
 		/**
-		* Add a square.
+		* Adds a square.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @param {number} size The square size.
@@ -647,7 +742,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.rect(x, y, size, size);
 		}
 		/**
-		* Add a triangle.
+		* Adds a triangle.
 		* @param {number} x1 The first X position.
 		* @param {number} y1 The first Y position.
 		* @param {number} x2 The second X position.
@@ -675,7 +770,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Add a vertex.
+		* Adds a vertex.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @returns {Path} The Path.
@@ -699,9 +794,9 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.#setCurrentPoint(x, y, true);
 		}
 		/**
-		* Set the path bounds.
-		* @param {number[]} xs The X co-ordinates.
-		* @param {number[]} ys The Y co-ordinates.
+		* Sets the path bounds.
+		* @param {number[]} xs The X coordinates.
+		* @param {number[]} ys The Y coordinates.
 		*/
 		#setBounds(xs, ys) {
 			this.#bounding.top = Math.min(this.#bounding.top, ...ys);
@@ -710,14 +805,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.#bounding.left = Math.min(this.#bounding.left, ...xs);
 		}
 		/**
-		* Set the path bounds from points.
+		* Sets the path bounds from points.
 		* @param {{x: number, y: number}[]} points The points to include.
 		*/
 		#setBoundsFromPoints(points) {
 			this.#setBounds(points.map((point) => point.x), points.map((point) => point.y));
 		}
 		/**
-		* Set the current point.
+		* Sets the current point.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @param {boolean} [resetSubpath=false] Whether to reset the subpath start.
@@ -735,11 +830,11 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 
 // src/vector.js
 /**
-	* Vector
+	* Stores a mutable 2D vector with arithmetic and geometric operations.
 	*/
 	var Vector = class Vector {
 		/**
-		* Create a new Vector.
+		* Creates a new Vector.
 		* @param {number} [x=0] The X position.
 		* @param {number} [y=0] The Y position.
 		* @returns {Vector} A new Vector object.
@@ -748,9 +843,9 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return new this(x, y);
 		}
 		/**
-		* Parse a Vector or X/Y co-ordinates.
-		* @param {Vector|number} x A Vector, or the X position.
-		* @param {number} [y] The Y position.
+		* Parses a Vector or X/Y coordinates.
+		* @param {Vector|number} [x=0] A Vector, or the X position.
+		* @param {number} [y=0] The Y position.
 		* @returns {Vector} The parsed Vector.
 		*/
 		static parse(x = 0, y = 0) {
@@ -758,14 +853,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return new this(x, y);
 		}
 		/**
-		* Create a random Vector.
+		* Creates a random Vector.
 		* @returns {Vector} A new Vector object.
 		*/
 		static random() {
 			return new this(Math.random(), Math.random());
 		}
 		/**
-		* New Vector constructor.
+		* Creates a Vector.
 		* @param {number} [x=0] The X position.
 		* @param {number} [y=0] The Y position.
 		*/
@@ -774,7 +869,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.y = y;
 		}
 		/**
-		* Add another Vector to the Vector.
+		* Adds another Vector to the Vector.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {Vector} The Vector.
@@ -786,7 +881,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Calculate the angle to another Vector.
+		* Calculates the angle to another Vector.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {number} The angle to the other Vector.
@@ -795,7 +890,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.constructor.parse(x, y).getHeading() - this.getHeading();
 		}
 		/**
-		* Clone the Vector.
+		* Clones the Vector.
 		* @returns {Vector} A new Vector.
 		*/
 		clone() {
@@ -803,7 +898,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return new VectorClass(this.x, this.y);
 		}
 		/**
-		* Calculate the distance to another Vector.
+		* Calculates the distance to another Vector.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {number} The distance to the other Vector.
@@ -813,7 +908,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return Math.hypot(other.x - this.x, other.y - this.y);
 		}
 		/**
-		* Divide the Vector by another.
+		* Divides the Vector by another.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {Vector} The Vector.
@@ -825,7 +920,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Calculate the dot product of the Vector with another.
+		* Calculates the dot product of the Vector with another.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {number} The dot product.
@@ -835,21 +930,21 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.x * other.x + this.y * other.y;
 		}
 		/**
-		* Get the angle of the Vector.
+		* Gets the angle of the Vector.
 		* @returns {number} The angle.
 		*/
 		getHeading() {
 			return Math.atan2(this.y, this.x);
 		}
 		/**
-		* Get the magnitude of the Vector.
+		* Gets the magnitude of the Vector.
 		* @returns {number} The magnitude.
 		*/
 		getMag() {
 			return Math.hypot(this.x, this.y);
 		}
 		/**
-		* Limit the Vector magnitude.
+		* Limits the Vector magnitude.
 		* @param {number} mag The magnitude.
 		* @returns {Vector} The Vector.
 		*/
@@ -858,7 +953,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.setMag(mag);
 		}
 		/**
-		* Multiply the Vector by another.
+		* Multiplies the Vector by another.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {Vector} The Vector.
@@ -870,14 +965,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Normalize the Vector magnitude.
+		* Normalizes the Vector magnitude.
 		* @returns {Vector} The Vector.
 		*/
 		normalize() {
 			return this.setMag(1);
 		}
 		/**
-		* Rotate the Vector.
+		* Rotates the Vector.
 		* @param {number} angle The angle.
 		* @returns {Vector} The Vector.
 		*/
@@ -889,7 +984,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the angle of the Vector.
+		* Sets the angle of the Vector.
 		* @param {number} angle The angle.
 		* @returns {Vector} The Vector.
 		*/
@@ -900,7 +995,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the magnitude of the Vector.
+		* Sets the magnitude of the Vector.
 		* @param {number} mag The magnitude.
 		* @returns {Vector} The Vector.
 		*/
@@ -911,7 +1006,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Subtract another Vector from the Vector.
+		* Subtracts another Vector from the Vector.
 		* @param {Vector|number} x The other Vector, or the X position.
 		* @param {number} [y] The Y position.
 		* @returns {Vector} The Vector.
@@ -927,13 +1022,13 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 // src/shape.js
 /** @import { Bounds, RenderOptions } from './render.js'; */
 	/**
-	* Shape
+	* Composes ordered paths and contours into a positioned, rotatable shape.
 	*/
 	var Shape = class {
 		#context;
 		#layers;
 		/**
-		* New Shape constructor.
+		* Creates a Shape.
 		* @param {CanvasRenderingContext2D} context The canvas context.
 		* @param {number} [x=0] The global X position.
 		* @param {number} [y=0] The global Y position.
@@ -951,10 +1046,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.#layers = [];
 		}
 		/**
-		* Determine if the shape contains a point.
+		* Determines if the shape contains a point.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
-		* @returns {boolean} TRUE if the shape contains the point, otherwise FALSE.
+		* @returns {boolean} Whether the global point lies inside a filled layer after contours are applied.
 		*/
 		containsPoint(x, y) {
 			const anchor = Vector.create(this.x + this.anchorX, this.y + this.anchorY);
@@ -967,7 +1062,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return pointInShape;
 		}
 		/**
-		* Add a contour to the shape.
+		* Adds a contour to the shape.
 		* @param {(path: Path) => void} callback The callback to generate the path.
 		* @returns {Shape} The Shape.
 		*/
@@ -975,7 +1070,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.layer(callback, true);
 		}
 		/**
-		* Get the bounding box of the shape.
+		* Gets the bounding box of the shape.
 		* @returns {Bounds} The bounding box.
 		*/
 		getBoundingBox() {
@@ -1010,7 +1105,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			};
 		}
 		/**
-		* Add a layer to the shape.
+		* Adds a layer to the shape.
 		* @param {(path: Path) => void} callback The callback to generate the path.
 		* @param {boolean} [contour=false] Whether the path is contoured.
 		* @returns {Shape} The Shape.
@@ -1025,7 +1120,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Render the shape.
+		* Renders the shape.
 		* @param {RenderOptions} [options={}] The rendering options.
 		* @returns {HTMLCanvasElement} The rendered canvas.
 		*/
@@ -1064,7 +1159,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return canvas;
 		}
 		/**
-		* Rotate a point around the anchor.
+		* Rotates a point around the anchor.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @returns {Vector} The rotated Vector.
@@ -1090,20 +1185,37 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	*/
 	/** @typedef {RenderOptions & TextOptions} CanvasContextOptions */
 	/**
-	* CanvasContext
+	* Provides chainable drawing, styling, and transforms for a 2D canvas.
 	*/
 	var CanvasContext = class {
+		/** @type {Readonly<CanvasContextOptions>} */
+		static defaults = Object.freeze({
+			fillStyle: null,
+			font: "sans-serif",
+			fontSize: 10,
+			fontWeight: null,
+			lineWidth: 1,
+			shadowBlur: 0,
+			shadowColor: null,
+			shadowOffsetX: 0,
+			shadowOffsetY: 0,
+			strokeStyle: "#000",
+			textAlign: "start",
+			textBaseline: "alphabetic"
+		});
 		#context;
 		#hasVertex;
 		#node;
 		#options;
 		#states;
 		/**
-		* New CanvasContext constructor.
+		* Creates a CanvasContext.
 		* @param {HTMLCanvasElement} node The canvas node.
 		* @param {number} [width=600] The canvas width.
 		* @param {number} [height=400] The canvas height.
 		* @param {CanvasContextOptions} [options={}] The canvas options.
+		* @throws {TypeError} When the node does not provide a 2D canvas context.
+		* @throws {RangeError} When a canvas dimension is negative or non-finite.
 		*/
 		constructor(node, width = 600, height = 400, options = {}) {
 			this.#node = node;
@@ -1118,7 +1230,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.resize(width, height);
 		}
 		/**
-		* Apply a matrix transform.
+		* Applies a matrix transform.
 		* @param {number} a The horizontal scaling amount.
 		* @param {number} b The vertical skewing.
 		* @param {number} c The horizontal skewing.
@@ -1132,7 +1244,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw an arc.
+		* Draws an arc.
 		* @param {number} x The X position of the arc center.
 		* @param {number} y The Y position of the arc center.
 		* @param {number} radius The arc radius.
@@ -1146,15 +1258,15 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.end();
 		}
 		/**
-		* Fill the entire canvas with a color.
-		* @param {string|CanvasGradient} color The color/gradient.
+		* Fills the entire canvas with a color.
+		* @param {string|CanvasGradient|CanvasPattern} color The color, gradient, or pattern.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		background(color) {
 			return this.push().resetMatrix().noStroke().fill(color).rect(0, 0, this.width, this.height).pop();
 		}
 		/**
-		* Begin a path.
+		* Begins a path.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		begin() {
@@ -1163,7 +1275,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a bezier curve.
+		* Draws a bezier curve.
 		* @param {number} x1 The start X position.
 		* @param {number} y1 The start Y position.
 		* @param {number} cx1 The first control point X position.
@@ -1178,7 +1290,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.begin().vertex(x1, y1).bezierVertex(cx1, cy1, cx2, cy2, x2, y2).end();
 		}
 		/**
-		* Add a bezier vertex.
+		* Adds a bezier vertex.
 		* @param {number} cx1 The first control point X position.
 		* @param {number} cy1 The first control point Y position.
 		* @param {number} cx2 The second control point X position.
@@ -1192,7 +1304,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a circle.
+		* Draws a circle.
 		* @param {number} x The X position of the circle center.
 		* @param {number} y The Y position of the circle center.
 		* @param {number} radius The circle radius.
@@ -1202,7 +1314,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.ellipse(x, y, radius * 2, radius * 2);
 		}
 		/**
-		* Clear the entire canvas.
+		* Clears the entire canvas.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		clear() {
@@ -1212,14 +1324,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.pop();
 		}
 		/**
-		* Create a new Path.
+		* Creates a new Path.
 		* @returns {Path} The Path.
 		*/
 		createPath() {
 			return new Path(this.#context);
 		}
 		/**
-		* Create a new Shape.
+		* Creates a new Shape.
 		* @param {number} [x=0] The global X position.
 		* @param {number} [y=0] The global Y position.
 		* @param {number} [angle=0] The rotation angle.
@@ -1231,7 +1343,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return new Shape(this.#context, x, y, angle, anchorX, anchorY);
 		}
 		/**
-		* Draw a curve.
+		* Draws a curve.
 		* @param {number} x1 The start X position.
 		* @param {number} y1 The start Y position.
 		* @param {number} cx1 The first control point X position.
@@ -1245,7 +1357,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.begin().vertex(x1, y1).curveVertex(cx1, cy1, cx2, cy2, radius).end();
 		}
 		/**
-		* Add a curve vertex.
+		* Adds a curve vertex.
 		* @param {number} cx1 The first control point X position.
 		* @param {number} cy1 The first control point Y position.
 		* @param {number} cx2 The second control point X position.
@@ -1258,10 +1370,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw an image on the canvas.
+		* Draws an image on the canvas.
 		* @param {HTMLImageElement|SVGImageElement|HTMLVideoElement|HTMLCanvasElement|ImageBitmap|OffscreenCanvas|VideoFrame} image The image.
-		* @param {number} x The X position.
-		* @param {number} y The Y position.
+		* @param {number} [x=0] The X position.
+		* @param {number} [y=0] The Y position.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		drawImage(image, x = 0, y = 0) {
@@ -1269,10 +1381,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a Path on the canvas.
+		* Draws a Path on the canvas.
 		* @param {Path} path The Path.
-		* @param {number} x The X position.
-		* @param {number} y The Y position.
+		* @param {number} [x=0] The X position.
+		* @param {number} [y=0] The Y position.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		drawPath(path, x = 0, y = 0) {
@@ -1281,10 +1393,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.drawImage(canvas, bounds.x + x, bounds.y + y);
 		}
 		/**
-		* Draw a Shape on the canvas.
+		* Draws a Shape on the canvas.
 		* @param {Shape} shape The Shape.
-		* @param {number} x The X position.
-		* @param {number} y The Y position.
+		* @param {number} [x=0] The X position.
+		* @param {number} [y=0] The Y position.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		drawShape(shape, x = 0, y = 0) {
@@ -1293,7 +1405,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.drawImage(canvas, bounds.x + x, bounds.y + y);
 		}
 		/**
-		* Draw an ellipse.
+		* Draws an ellipse.
 		* @param {number} x The X position of the ellipse center.
 		* @param {number} y The Y position of the ellipse center.
 		* @param {number} width The ellipse width.
@@ -1317,7 +1429,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Erase a path from the Canvas.
+		* Erases a path from the Canvas.
 		* @param {(path: Path) => void} callback The callback to generate the path.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1334,8 +1446,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.pop();
 		}
 		/**
-		* Set the fill color/style.
-		* @param {string|CanvasGradient} color The color/gradient.
+		* Sets the fill color/style.
+		* @param {string|CanvasGradient|CanvasPattern} color The color, gradient, or pattern.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		fill(color) {
@@ -1343,7 +1455,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the font family.
+		* Sets the font family.
 		* @param {string} font The font family.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1352,7 +1464,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the font size.
+		* Sets the font size.
 		* @param {number} size The font size.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1361,7 +1473,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the font weight.
+		* Sets the font weight.
 		* @param {string|number} weight The font weight.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1370,7 +1482,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Get the canvas image data.
+		* Gets the canvas image data.
 		* @param {number} sx The X offset.
 		* @param {number} sy The Y offset.
 		* @param {number} sw The width.
@@ -1381,14 +1493,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.#context.getImageData(sx, sy, sw, sh);
 		}
 		/**
-		* Get the active canvas options.
+		* Gets the active canvas options.
 		* @returns {CanvasContextOptions} A copy of the active options.
 		*/
 		getOptions() {
 			return { ...this.#options };
 		}
 		/**
-		* Draw a line.
+		* Draws a line.
 		* @param {number} x1 The start X position.
 		* @param {number} y1 The start Y position.
 		* @param {number} x2 The end X position.
@@ -1399,7 +1511,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.begin().vertex(x1, y1).vertex(x2, y2).end();
 		}
 		/**
-		* Create a linear gradient.
+		* Creates a linear gradient.
 		* @param {number} x1 The starting X position.
 		* @param {number} y1 The starting Y position.
 		* @param {number} x2 The ending X position.
@@ -1410,7 +1522,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.#context.createLinearGradient(x1, y1, x2, y2);
 		}
 		/**
-		* Remove the fill color/style.
+		* Removes the fill color/style.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		noFill() {
@@ -1418,7 +1530,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Remove the shadow.
+		* Removes the shadow.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		noShadow() {
@@ -1426,7 +1538,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Remove the stroke.
+		* Removes the stroke.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		noStroke() {
@@ -1434,7 +1546,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a point.
+		* Draws a point.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @returns {CanvasContext} The CanvasContext.
@@ -1445,7 +1557,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.push().noStroke().fill(strokeStyle).circle(x, y, radius).pop();
 		}
 		/**
-		* Restore the previous canvas settings and transformation.
+		* Restores the previous canvas settings and transformation.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		pop() {
@@ -1456,7 +1568,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Save the canvas settings and transformation.
+		* Saves the canvas settings and transformation.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		push() {
@@ -1465,14 +1577,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Put image data on the canvas.
+		* Puts image data on the canvas.
 		* @param {ImageData} image The image data.
 		* @param {number} dx The X position.
-		* @param {number} dy The Y  position.
-		* @param {number} dirtyX The X offset.
-		* @param {number} dirtyY The Y offset.
-		* @param {number} dirtyWidth The width.
-		* @param {number} dirtyHeight The height.
+		* @param {number} dy The Y position.
+		* @param {number} [dirtyX] The dirty region X offset.
+		* @param {number} [dirtyY] The dirty region Y offset.
+		* @param {number} [dirtyWidth] The dirty region width.
+		* @param {number} [dirtyHeight] The dirty region height.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		putImage(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight) {
@@ -1481,7 +1593,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a quadrilateral.
+		* Draws a quadrilateral.
 		* @param {number} x1 The first point X position.
 		* @param {number} y1 The first point Y position.
 		* @param {number} x2 The second point X position.
@@ -1496,7 +1608,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.begin().vertex(x1, y1).vertex(x2, y2).vertex(x3, y3).vertex(x4, y4).end(true);
 		}
 		/**
-		* Add a quadratic vertex.
+		* Adds a quadratic vertex.
 		* @param {number} cx The control point X position.
 		* @param {number} cy The control point Y position.
 		* @param {number} x The X position.
@@ -1508,7 +1620,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Create a radial gradient.
+		* Creates a radial gradient.
 		* @param {number} x1 The starting X position.
 		* @param {number} y1 The starting Y position.
 		* @param {number} r1 The starting radius.
@@ -1521,7 +1633,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.#context.createRadialGradient(x1, y1, r1, x2, y2, r2);
 		}
 		/**
-		* Draw a rectangle.
+		* Draws a rectangle.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @param {number} width The rectangle width.
@@ -1534,7 +1646,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.end();
 		}
 		/**
-		* Reset the canvas settings and transformation.
+		* Resets the canvas settings and transformation.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		reset() {
@@ -1542,7 +1654,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.resetMatrix();
 		}
 		/**
-		* Reset the canvas transformation matrix.
+		* Resets the canvas transformation matrix.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		resetMatrix() {
@@ -1550,7 +1662,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Resize the canvas.
+		* Resizes the canvas.
 		* @param {number} w The width.
 		* @param {number} h The height.
 		* @returns {CanvasContext} The CanvasContext.
@@ -1569,7 +1681,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Rotate the canvas.
+		* Rotates the canvas.
 		* @param {number} angle The rotation angle.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1580,7 +1692,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		/**
 		* Scale the canvas.
 		* @param {number} x The horizontal scaling.
-		* @param {number} [y] The vertical scaling.
+		* @param {number} [y=x] The vertical scaling.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		scale(x, y = x) {
@@ -1588,7 +1700,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the shadow color.
+		* Sets the shadow color.
 		* @param {string|CanvasGradient} color The color.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1597,7 +1709,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the shadow blur amount.
+		* Sets the shadow blur amount.
 		* @param {number} amount The blur amount.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1606,7 +1718,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the shadow x/y offset.
+		* Sets the shadow x/y offset.
 		* @param {number} [x=0] The X offset.
 		* @param {number} [y=0] The Y offset.
 		* @returns {CanvasContext} The CanvasContext.
@@ -1617,7 +1729,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a square.
+		* Draws a square.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @param {number} size The square size.
@@ -1627,8 +1739,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.rect(x, y, size, size);
 		}
 		/**
-		* Set the stroke color/style.
-		* @param {string|CanvasGradient} color The color/gradient.
+		* Sets the stroke color/style.
+		* @param {string|CanvasGradient|CanvasPattern} color The color, gradient, or pattern.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		stroke(color) {
@@ -1636,7 +1748,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the stroke width.
+		* Sets the stroke width.
 		* @param {number} width The width.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
@@ -1645,7 +1757,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw text to the canvas.
+		* Draws text to the canvas.
 		* @param {string} text The text to draw.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
@@ -1665,8 +1777,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the text alignment.
-		* @param {string} alignment The text alignment.
+		* Sets the text alignment.
+		* @param {CanvasTextAlign} alignment The horizontal text alignment.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		textAlign(alignment) {
@@ -1674,8 +1786,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Set the text baseline.
-		* @param {string} baseline The text baseline.
+		* Sets the text baseline.
+		* @param {CanvasTextBaseline} baseline The vertical text alignment.
 		* @returns {CanvasContext} The CanvasContext.
 		*/
 		textBaseline(baseline) {
@@ -1683,7 +1795,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Translate the canvas origin.
+		* Translates the canvas origin.
 		* @param {number} x The X offset.
 		* @param {number} y The Y offset.
 		* @returns {CanvasContext} The CanvasContext.
@@ -1693,7 +1805,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Draw a triangle.
+		* Draws a triangle.
 		* @param {number} x1 The first X position.
 		* @param {number} y1 The first Y position.
 		* @param {number} x2 The second X position.
@@ -1706,7 +1818,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this.begin().vertex(x1, y1).vertex(x2, y2).vertex(x3, y3).end(true);
 		}
 		/**
-		* Add a vertex.
+		* Adds a vertex.
 		* @param {number} x The X position.
 		* @param {number} y The Y position.
 		* @returns {CanvasContext} The CanvasContext.
@@ -1719,13 +1831,13 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Update the canvas context.
+		* Updates the canvas context.
 		*/
 		#applyStyles() {
 			applyStyles(this.#context, this.#options);
 		}
 		/**
-		* Draw to the canvas.
+		* Draws to the canvas.
 		*/
 		#draw() {
 			this.#applyStyles();
@@ -1733,21 +1845,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			if (this.#options.strokeStyle) this.#context.stroke();
 		}
 	};
-	/** @type {Readonly<CanvasContextOptions>} */
-	CanvasContext.defaults = Object.freeze({
-		fillStyle: null,
-		font: "sans-serif",
-		fontSize: 10,
-		fontWeight: null,
-		lineWidth: 1,
-		shadowBlur: 0,
-		shadowColor: null,
-		shadowOffsetX: 0,
-		shadowOffsetY: 0,
-		strokeStyle: "#000",
-		textAlign: "start",
-		textBaseline: "alphabetic"
-	});
 
 // src/canvas.js
 /**
@@ -1762,7 +1859,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	* @property {CanvasRuntime} [runtime] Overrides for timing, frame scheduling, and input events.
 	*/
 	/**
-	* Canvas
+	* Manages a canvas animation lifecycle and keyboard and mouse input.
 	*/
 	var Canvas = class {
 		#cancelAnimationFrame;
@@ -1781,8 +1878,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		#requestAnimationFrame;
 		#startTime;
 		/**
-		* Create a new Canvas with a new canvas element.
-		* @param {HTMLElement} [parent] The parent node.
+		* Creates a new Canvas with a new canvas element.
+		* @param {HTMLElement} [parent=document.body] The parent node.
 		* @param {number} [width=600] The canvas width.
 		* @param {number} [height=400] The canvas height.
 		* @param {CanvasOptions} [options={}] Additional canvas options.
@@ -1794,30 +1891,31 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return new this(canvas, width, height, options);
 		}
 		/**
-		* New Canvas constructor.
+		* Creates a Canvas.
 		* @param {HTMLCanvasElement} node The canvas node.
 		* @param {number} [width=600] The canvas width.
 		* @param {number} [height=400] The canvas height.
 		* @param {CanvasOptions} [options={}] Additional canvas options.
+		* @throws {TypeError} When the node does not provide canvas and event APIs.
 		*/
 		constructor(node, width = 600, height = 400, options = {}) {
 			if (!node || typeof node.addEventListener !== "function") throw new TypeError("Canvas requires a canvas element.");
 			const runtime = options.runtime ?? {};
 			this.#node = node;
-			this.#destroyed = false;
 			this.#eventTarget = runtime.eventTarget ?? globalThis.window;
 			this.#cancelAnimationFrame = runtime.cancelAnimationFrame ?? this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
+			this.#now = runtime.now ?? (() => globalThis.performance.now());
+			this.#requestAnimationFrame = runtime.requestAnimationFrame ?? this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
+			this.#destroyed = false;
 			this.#frameId = null;
-			this.#listeners = [];
 			this.#loop = true;
+			this.#previousTime = null;
+			this.#startTime = null;
+			this.#listeners = [];
+			this.#keysDown = /* @__PURE__ */ new Set();
+			this.#mouseDown = /* @__PURE__ */ new Set();
 			this.#mouseX = null;
 			this.#mouseY = null;
-			this.#mouseDown = /* @__PURE__ */ new Set();
-			this.#keysDown = /* @__PURE__ */ new Set();
-			this.#now = runtime.now ?? (() => globalThis.performance.now());
-			this.#previousTime = null;
-			this.#requestAnimationFrame = runtime.requestAnimationFrame ?? this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
-			this.#startTime = null;
 			this.context = new CanvasContext(this.#node, width, height);
 			this.#node.setAttribute("tabindex", "1");
 			this.#node.style.setProperty("outline", "0");
@@ -1840,7 +1938,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			run();
 		}
 		/**
-		* Stop the loop and remove event listeners.
+		* Stops the loop and remove event listeners.
 		* @returns {Canvas} The Canvas.
 		*/
 		destroy() {
@@ -1856,23 +1954,23 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return this;
 		}
 		/**
-		* Determine if a key is being pressed.
-		* @param {string} code The key code.
-		* @returns {boolean} TRUE if the key is being pressed, otherwise FALSE.
+		* Determines if a key is being pressed.
+		* @param {string} [code] The physical key code; omit to check any pressed key.
+		* @returns {boolean} Whether a matching key is pressed.
 		*/
 		isKeyPressed(code) {
 			return code ? this.#keysDown.has(code) : this.#keysDown.size > 0;
 		}
 		/**
-		* Determine if a mouse button is being pressed.
-		* @param {number} button The mouse button.
-		* @returns {boolean} TRUE if the mouse button is being pressed, otherwise FALSE.
+		* Determines if a mouse button is being pressed.
+		* @param {number} [button=0] The mouse button.
+		* @returns {boolean} Whether the button is pressed while the pointer is inside the canvas.
 		*/
 		isMousePressed(button = 0) {
 			return this.#mouseDown.has(button) && this.#mouseX !== null && this.#mouseY !== null;
 		}
 		/**
-		* Get the mouse position.
+		* Gets the mouse position.
 		* @returns {Vector|null} The mouse position.
 		*/
 		mousePos() {
@@ -1880,7 +1978,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			return new Vector(this.#mouseX, this.#mouseY);
 		}
 		/**
-		* Stop the update method.
+		* Stops the update method.
 		*/
 		noLoop() {
 			this.#loop = false;
@@ -1941,17 +2039,17 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		*/
 		onMouseUp(_button, _event) {}
 		/**
-		* Setup callback.
+		* Initializes sketch state during construction, before the first update.
 		*/
 		setup() {}
 		/**
-		* Update callback.
+		* Updates callback.
 		* @param {number} _deltaTime The time elapsed since the previous frame in seconds.
 		* @param {number} _elapsedTime The total time elapsed since the loop started in seconds.
 		*/
 		update(_deltaTime, _elapsedTime) {}
 		/**
-		* Add an event listener and track it for cleanup.
+		* Adds an event listener and track it for cleanup.
 		* @param {EventTarget} target The event target.
 		* @param {string} type The event type.
 		* @param {Function} listener The event listener.
@@ -1965,7 +2063,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			});
 		}
 		/**
-		* Attach events for the Canvas.
+		* Attaches events for the Canvas.
 		*/
 		#events() {
 			const updateMouse = (e) => {

@@ -5,14 +5,14 @@ import { emptyBounds, getRenderBounds } from './render.js';
 import Vector from './vector.js';
 
 /**
- * Shape
+ * Composes ordered paths and contours into a positioned, rotatable shape.
  */
 export default class Shape {
     #context;
     #layers;
 
     /**
-     * New Shape constructor.
+     * Creates a Shape.
      * @param {CanvasRenderingContext2D} context The canvas context.
      * @param {number} [x=0] The global X position.
      * @param {number} [y=0] The global Y position.
@@ -33,14 +33,13 @@ export default class Shape {
     }
 
     /**
-     * Determine if the shape contains a point.
+     * Determines if the shape contains a point.
      * @param {number} x The X position.
      * @param {number} y The Y position.
-     * @returns {boolean} TRUE if the shape contains the point, otherwise FALSE.
+     * @returns {boolean} Whether the global point lies inside a filled layer after contours are applied.
      */
     containsPoint(x, y) {
         const anchor = Vector.create(this.x + this.anchorX, this.y + this.anchorY);
-
         const rotatedPoint = Vector.create(x, y)
             .sub(anchor)
             .rotate(-this.angle)
@@ -64,7 +63,7 @@ export default class Shape {
     }
 
     /**
-     * Add a contour to the shape.
+     * Adds a contour to the shape.
      * @param {(path: Path) => void} callback The callback to generate the path.
      * @returns {Shape} The Shape.
      */
@@ -73,7 +72,7 @@ export default class Shape {
     }
 
     /**
-     * Get the bounding box of the shape.
+     * Gets the bounding box of the shape.
      * @returns {Bounds} The bounding box.
      */
     getBoundingBox() {
@@ -123,13 +122,14 @@ export default class Shape {
     }
 
     /**
-     * Add a layer to the shape.
+     * Adds a layer to the shape.
      * @param {(path: Path) => void} callback The callback to generate the path.
      * @param {boolean} [contour=false] Whether the path is contoured.
      * @returns {Shape} The Shape.
      */
     layer(callback, contour = false) {
         const path = new Path(this.#context);
+
         callback(path);
 
         this.#layers.push({
@@ -141,7 +141,7 @@ export default class Shape {
     }
 
     /**
-     * Render the shape.
+     * Renders the shape.
      * @param {RenderOptions} [options={}] The rendering options.
      * @returns {HTMLCanvasElement} The rendered canvas.
      */
@@ -156,7 +156,6 @@ export default class Shape {
         }
 
         const renderBounds = getRenderBounds(this.getBoundingBox(), options);
-
         const context = canvas.getContext('2d');
 
         if (!context) {
@@ -173,6 +172,7 @@ export default class Shape {
 
         for (const { contour, path } of this.#layers) {
             let layerOptions;
+
             if (contour) {
                 context.globalCompositeOperation = 'destination-out';
                 layerOptions = {
@@ -185,7 +185,6 @@ export default class Shape {
             }
 
             const layerBounds = getRenderBounds(path.getBoundingBox(), layerOptions);
-
             const layerCanvas = path.render(layerOptions);
 
             context.drawImage(layerCanvas, layerBounds.x, layerBounds.y);
@@ -195,7 +194,7 @@ export default class Shape {
     }
 
     /**
-     * Rotate a point around the anchor.
+     * Rotates a point around the anchor.
      * @param {number} x The X position.
      * @param {number} y The Y position.
      * @returns {Vector} The rotated Vector.

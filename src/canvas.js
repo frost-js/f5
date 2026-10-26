@@ -1,3 +1,6 @@
+import CanvasContext from './canvas-context.js';
+import Vector from './vector.js';
+
 /**
  * @typedef {object} CanvasRuntime
  * @property {Window|EventTarget} [eventTarget] Target for global input and default animation scheduling.
@@ -11,11 +14,8 @@
  * @property {CanvasRuntime} [runtime] Overrides for timing, frame scheduling, and input events.
  */
 
-import CanvasContext from './canvas-context.js';
-import Vector from './vector.js';
-
 /**
- * Canvas
+ * Manages a canvas animation lifecycle and keyboard and mouse input.
  */
 export default class Canvas {
     #cancelAnimationFrame;
@@ -35,8 +35,8 @@ export default class Canvas {
     #startTime;
 
     /**
-     * Create a new Canvas with a new canvas element.
-     * @param {HTMLElement} [parent] The parent node.
+     * Creates a new Canvas with a new canvas element.
+     * @param {HTMLElement} [parent=document.body] The parent node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
      * @param {CanvasOptions} [options={}] Additional canvas options.
@@ -51,11 +51,12 @@ export default class Canvas {
     }
 
     /**
-     * New Canvas constructor.
+     * Creates a Canvas.
      * @param {HTMLCanvasElement} node The canvas node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
      * @param {CanvasOptions} [options={}] Additional canvas options.
+     * @throws {TypeError} When the node does not provide canvas and event APIs.
      */
     constructor(node, width = 600, height = 400, options = {}) {
         if (!node || typeof node.addEventListener !== 'function') {
@@ -65,23 +66,24 @@ export default class Canvas {
         const runtime = options.runtime ?? {};
 
         this.#node = node;
-
-        this.#destroyed = false;
         this.#eventTarget = runtime.eventTarget ?? globalThis.window;
         this.#cancelAnimationFrame = runtime.cancelAnimationFrame ??
             this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
-        this.#frameId = null;
-        this.#listeners = [];
-        this.#loop = true;
-        this.#mouseX = null;
-        this.#mouseY = null;
-        this.#mouseDown = new Set();
-        this.#keysDown = new Set();
         this.#now = runtime.now ?? (() => globalThis.performance.now());
-        this.#previousTime = null;
         this.#requestAnimationFrame = runtime.requestAnimationFrame ??
             this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
+
+        this.#destroyed = false;
+        this.#frameId = null;
+        this.#loop = true;
+        this.#previousTime = null;
         this.#startTime = null;
+
+        this.#listeners = [];
+        this.#keysDown = new Set();
+        this.#mouseDown = new Set();
+        this.#mouseX = null;
+        this.#mouseY = null;
 
         this.context = new CanvasContext(this.#node, width, height);
 
@@ -117,6 +119,7 @@ export default class Canvas {
 
             this.#frameId = this.#requestAnimationFrame(() => {
                 this.#frameId = null;
+
                 run();
             });
         };
@@ -125,7 +128,7 @@ export default class Canvas {
     }
 
     /**
-     * Stop the loop and remove event listeners.
+     * Stops the loop and remove event listeners.
      * @returns {Canvas} The Canvas.
      */
     destroy() {
@@ -143,6 +146,7 @@ export default class Canvas {
         }
 
         this.#listeners = [];
+
         this.#mouseDown.clear();
         this.#keysDown.clear();
         this.#mouseX = null;
@@ -152,9 +156,9 @@ export default class Canvas {
     }
 
     /**
-     * Determine if a key is being pressed.
-     * @param {string} code The key code.
-     * @returns {boolean} TRUE if the key is being pressed, otherwise FALSE.
+     * Determines if a key is being pressed.
+     * @param {string} [code] The physical key code; omit to check any pressed key.
+     * @returns {boolean} Whether a matching key is pressed.
      */
     isKeyPressed(code) {
         return code ?
@@ -163,16 +167,16 @@ export default class Canvas {
     }
 
     /**
-     * Determine if a mouse button is being pressed.
-     * @param {number} button The mouse button.
-     * @returns {boolean} TRUE if the mouse button is being pressed, otherwise FALSE.
+     * Determines if a mouse button is being pressed.
+     * @param {number} [button=0] The mouse button.
+     * @returns {boolean} Whether the button is pressed while the pointer is inside the canvas.
      */
     isMousePressed(button = 0) {
         return this.#mouseDown.has(button) && this.#mouseX !== null && this.#mouseY !== null;
     }
 
     /**
-     * Get the mouse position.
+     * Gets the mouse position.
      * @returns {Vector|null} The mouse position.
      */
     mousePos() {
@@ -184,7 +188,7 @@ export default class Canvas {
     }
 
     /**
-     * Stop the update method.
+     * Stops the update method.
      */
     noLoop() {
         this.#loop = false;
@@ -277,14 +281,14 @@ export default class Canvas {
     }
 
     /**
-     * Setup callback.
+     * Initializes sketch state during construction, before the first update.
      */
     setup() {
 
     }
 
     /**
-     * Update callback.
+     * Updates callback.
      * @param {number} _deltaTime The time elapsed since the previous frame in seconds.
      * @param {number} _elapsedTime The total time elapsed since the loop started in seconds.
      */
@@ -293,7 +297,7 @@ export default class Canvas {
     }
 
     /**
-     * Add an event listener and track it for cleanup.
+     * Adds an event listener and track it for cleanup.
      * @param {EventTarget} target The event target.
      * @param {string} type The event type.
      * @param {Function} listener The event listener.
@@ -308,7 +312,7 @@ export default class Canvas {
     }
 
     /**
-     * Attach events for the Canvas.
+     * Attaches events for the Canvas.
      */
     #events() {
         const updateMouse = (e) => {

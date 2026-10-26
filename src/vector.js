@@ -1,9 +1,9 @@
 /**
- * Vector
+ * Stores a mutable 2D vector with arithmetic and geometric operations.
  */
 export default class Vector {
     /**
-     * Create a new Vector.
+     * Creates a new Vector.
      * @param {number} [x=0] The X position.
      * @param {number} [y=0] The Y position.
      * @returns {Vector} A new Vector object.
@@ -13,9 +13,9 @@ export default class Vector {
     }
 
     /**
-     * Parse a Vector or X/Y co-ordinates.
-     * @param {Vector|number} x A Vector, or the X position.
-     * @param {number} [y] The Y position.
+     * Parses a Vector or X/Y coordinates.
+     * @param {Vector|number} [x=0] A Vector, or the X position.
+     * @param {number} [y=0] The Y position.
      * @returns {Vector} The parsed Vector.
      */
     static parse(x = 0, y = 0) {
@@ -27,7 +27,7 @@ export default class Vector {
     }
 
     /**
-     * Create a random Vector.
+     * Creates a random Vector.
      * @returns {Vector} A new Vector object.
      */
     static random() {
@@ -35,7 +35,7 @@ export default class Vector {
     }
 
     /**
-     * New Vector constructor.
+     * Creates a Vector.
      * @param {number} [x=0] The X position.
      * @param {number} [y=0] The Y position.
      */
@@ -45,7 +45,7 @@ export default class Vector {
     }
 
     /**
-     * Add another Vector to the Vector.
+     * Adds another Vector to the Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {Vector} The Vector.
@@ -60,7 +60,7 @@ export default class Vector {
     }
 
     /**
-     * Calculate the angle to another Vector.
+     * Calculates the angle to another Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {number} The angle to the other Vector.
@@ -72,7 +72,7 @@ export default class Vector {
     }
 
     /**
-     * Clone the Vector.
+     * Clones the Vector.
      * @returns {Vector} A new Vector.
      */
     clone() {
@@ -82,7 +82,7 @@ export default class Vector {
     }
 
     /**
-     * Calculate the distance to another Vector.
+     * Calculates the distance to another Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {number} The distance to the other Vector.
@@ -94,7 +94,7 @@ export default class Vector {
     }
 
     /**
-     * Divide the Vector by another.
+     * Divides the Vector by another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {Vector} The Vector.
@@ -109,7 +109,7 @@ export default class Vector {
     }
 
     /**
-     * Calculate the dot product of the Vector with another.
+     * Calculates the dot product of the Vector with another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {number} The dot product.
@@ -121,7 +121,7 @@ export default class Vector {
     }
 
     /**
-     * Get the angle of the Vector.
+     * Gets the angle of the Vector.
      * @returns {number} The angle.
      */
     getHeading() {
@@ -129,7 +129,7 @@ export default class Vector {
     }
 
     /**
-     * Get the magnitude of the Vector.
+     * Gets the magnitude of the Vector.
      * @returns {number} The magnitude.
      */
     getMag() {
@@ -137,7 +137,7 @@ export default class Vector {
     }
 
     /**
-     * Limit the Vector magnitude.
+     * Limits the Vector magnitude.
      * @param {number} mag The magnitude.
      * @returns {Vector} The Vector.
      */
@@ -150,7 +150,7 @@ export default class Vector {
     }
 
     /**
-     * Multiply the Vector by another.
+     * Multiplies the Vector by another.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {Vector} The Vector.
@@ -165,7 +165,7 @@ export default class Vector {
     }
 
     /**
-     * Normalize the Vector magnitude.
+     * Normalizes the Vector magnitude.
      * @returns {Vector} The Vector.
      */
     normalize() {
@@ -173,7 +173,7 @@ export default class Vector {
     }
 
     /**
-     * Rotate the Vector.
+     * Rotates the Vector.
      * @param {number} angle The angle.
      * @returns {Vector} The Vector.
      */
@@ -189,7 +189,7 @@ export default class Vector {
     }
 
     /**
-     * Set the angle of the Vector.
+     * Sets the angle of the Vector.
      * @param {number} angle The angle.
      * @returns {Vector} The Vector.
      */
@@ -203,7 +203,7 @@ export default class Vector {
     }
 
     /**
-     * Set the magnitude of the Vector.
+     * Sets the magnitude of the Vector.
      * @param {number} mag The magnitude.
      * @returns {Vector} The Vector.
      */
@@ -217,7 +217,7 @@ export default class Vector {
     }
 
     /**
-     * Subtract another Vector from the Vector.
+     * Subtracts another Vector from the Vector.
      * @param {Vector|number} x The other Vector, or the X position.
      * @param {number} [y] The Y position.
      * @returns {Vector} The Vector.
