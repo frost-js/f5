@@ -10,7 +10,155 @@ test.describe('Canvas', () => {
         });
     });
 
-    test.describe('construction failures', () => {
+    test.describe('#start', () => {
+        test('waits for subclass initialization and starts only once', ({ animationWindow, canvasNode }) => {
+            const node = canvasNode();
+
+            class Sketch extends Canvas {
+                frames = 0;
+                setupCalls = 0;
+
+                #value = 1;
+
+                constructor(...args) {
+                    super(...args);
+                    this.#value = 7;
+                }
+
+                setup() {
+                    this.setupCalls += 1;
+                    this.setupValue = this.#value;
+                    this.start();
+                }
+
+                update() {
+                    this.frames += 1;
+                    this.updateValue = this.#value;
+                }
+            }
+
+            const sketch = new Sketch(node, 600, 400, { runtime: animationWindow });
+
+            expect(sketch.setupCalls).toBe(0);
+            expect(sketch.frames).toBe(0);
+            expect(node.listenerCount()).toBe(0);
+            expect(animationWindow.listenerCount()).toBe(0);
+
+            expect(sketch.start()).toBe(sketch);
+
+            const nodeListeners = node.listenerCount();
+            const windowListeners = animationWindow.listenerCount();
+
+            expect(sketch.start()).toBe(sketch);
+            expect(sketch.setupCalls).toBe(1);
+            expect(sketch.setupValue).toBe(7);
+            expect(sketch.frames).toBe(1);
+            expect(sketch.updateValue).toBe(7);
+            expect(nodeListeners).toBeGreaterThan(0);
+            expect(windowListeners).toBeGreaterThan(0);
+            expect(node.listenerCount()).toBe(nodeListeners);
+            expect(animationWindow.listenerCount()).toBe(windowListeners);
+
+            animationWindow.runFrame(1);
+
+            expect(sketch.frames).toBe(2);
+
+            sketch.noLoop();
+            sketch.start();
+            animationWindow.runFrame(2);
+
+            expect(sketch.frames).toBe(2);
+            expect(sketch.setupCalls).toBe(1);
+
+            sketch.dispose();
+        });
+
+        test('supports static sketches that stop the loop in setup', ({ animationWindow, canvasNode }) => {
+            const node = canvasNode();
+
+            class Sketch extends Canvas {
+                frames = 0;
+
+                setup() {
+                    this.noLoop();
+                }
+
+                update() {
+                    this.frames += 1;
+                }
+            }
+
+            const sketch = new Sketch(node, 600, 400, { runtime: animationWindow });
+
+            sketch.start();
+            sketch.start();
+            animationWindow.runFrame(1);
+            node.dispatch('keydown', { code: 'KeyA', key: 'a' });
+
+            expect(sketch.frames).toBe(0);
+            expect(sketch.isKeyPressed('KeyA')).toBe(true);
+
+            sketch.dispose();
+        });
+
+        test('does not start a sketch disposed before startup', ({ animationWindow, canvasNode }) => {
+            const node = canvasNode();
+
+            class Sketch extends Canvas {
+                frames = 0;
+                setupCalls = 0;
+
+                setup() {
+                    this.setupCalls += 1;
+                }
+
+                update() {
+                    this.frames += 1;
+                }
+            }
+
+            const sketch = new Sketch(node, 600, 400, { runtime: animationWindow });
+
+            expect(sketch.dispose()).toBeUndefined();
+            expect(sketch.dispose()).toBeUndefined();
+            expect(sketch.start()).toBe(sketch);
+
+            animationWindow.runFrame(1);
+
+            expect(sketch.setupCalls).toBe(0);
+            expect(sketch.frames).toBe(0);
+            expect(node.listenerCount()).toBe(0);
+            expect(animationWindow.listenerCount()).toBe(0);
+        });
+
+        test('stops startup when setup disposes the sketch', ({ animationWindow, canvasNode }) => {
+            const node = canvasNode();
+
+            class Sketch extends Canvas {
+                frames = 0;
+
+                setup() {
+                    this.dispose();
+                }
+
+                update() {
+                    this.frames += 1;
+                }
+            }
+
+            const sketch = new Sketch(node, 600, 400, { runtime: animationWindow });
+
+            sketch.start();
+            sketch.start();
+            animationWindow.runFrame(1);
+
+            expect(sketch.frames).toBe(0);
+            expect(node.listenerCount()).toBe(0);
+            expect(animationWindow.listenerCount()).toBe(0);
+        });
+    });
+
+    test.describe('startup failures', () => {
         for (const hook of ['setup', 'update']) {
             test(`removes listeners when ${hook} throws`, ({ animationWindow, canvasNode }) => {
                 const node = canvasNode();
@@ -22,9 +170,12 @@ test.describe('Canvas', () => {
                     }
                 }
 
-                expect(() => new Sketch(node, 600, 400, {
+                const sketch = new Sketch(node, 600, 400, {
                     runtime: animationWindow,
-                })).toThrow(error);
+                });
+
+                expect(() => sketch.start()).toThrow(error);
+                expect(sketch.start()).toBe(sketch);
                 expect(node.listenerCount()).toBe(0);
                 expect(animationWindow.listenerCount()).toBe(0);
             });
@@ -57,6 +208,8 @@ test.describe('Canvas', () => {
             const sketch = new Sketch(node, 600, 400, {
                 runtime: animationWindow,
             });
+
+            sketch.start();
 
             animationWindow.advanceTime(16);
             animationWindow.runFrame(1);
@@ -99,6 +252,7 @@ test.describe('Canvas', () => {
             const sketch = new Sketch(node);
 
             try {
+                sketch.start();
                 animationWindow.advanceTime(16);
                 animationWindow.runFrame(1);
 
@@ -141,6 +295,8 @@ test.describe('Canvas', () => {
                 runtime: animationWindow,
             });
 
+            sketch.start();
+
             expect(sketch.calls).toBe(1);
 
             sketch.noLoop();
@@ -170,6 +326,8 @@ test.describe('Canvas', () => {
             const sketch = new Sketch(node, 600, 400, {
                 runtime: animationWindow,
             });
+
+            sketch.start();
 
             node.dispatch('mouseenter', {
                 clientX: 15,
@@ -225,6 +383,8 @@ test.describe('Canvas', () => {
                 runtime: animationWindow,
             });
 
+            sketch.start();
+
             node.dispatch('keydown', {
                 code: 'KeyA',
                 key: 'a',
@@ -278,6 +438,8 @@ test.describe('Canvas', () => {
             const sketch = new Sketch(node, 600, 400, {
                 runtime: animationWindow,
             });
+
+            sketch.start();
 
             node.dispatch('mouseenter', {
                 clientX: 15,

@@ -48,6 +48,7 @@ test.describe('Canvas animation', () => {
                     window.sketch = new Sketch(document.getElementById('canvas'), 600, 400, {
                         runtime,
                     });
+                    window.sketch.start();
 
                     animationFrames[0]();
 
@@ -90,6 +91,7 @@ test.describe('Canvas animation', () => {
                 }
 
                 window.sketch = new Sketch(document.getElementById('canvas'));
+                window.sketch.start();
             });
             await page.clock.runFor(50);
             await page.locator('#canvas').focus();

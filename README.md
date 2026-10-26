@@ -118,6 +118,15 @@ const sketch = Sketch.attach(document.body, 600, 400);
 // Call sketch.dispose() when the sketch is removed or its owner is disposed.
 ```
 
+For an existing canvas, construct the sketch and then start it:
+
+```js
+const sketch = new Sketch(document.getElementById('canvas'), 600, 400);
+sketch.start();
+```
+
+`attach()` starts the sketch automatically after construction finishes.
+
 ## API
 
 ### Canvas
@@ -126,12 +135,13 @@ Subclass `Canvas` to implement `setup()` and `update(deltaTime, elapsedTime)`. T
 
 | Signature | Description |
 | --- | --- |
-| `new Canvas(node, width = 600, height = 400, options = {})` | Wrap an existing canvas and start the lifecycle |
-| `Canvas.attach(parent = document.body, width = 600, height = 400, options = {})` | Create and append a canvas, returning an instance of the class called |
-| `setup()` | Initialization hook called during construction |
+| `new Canvas(node, width = 600, height = 400, options = {})` | Wrap an existing canvas without starting input or lifecycle hooks |
+| `Canvas.attach(parent = document.body, width = 600, height = 400, options = {})` | Create and append a canvas, construct the sketch, and call `start()` |
+| `start()` | Start input, call `setup()`, and begin updates once; return the instance |
+| `setup()` | Initialization hook called once by `start()` |
 | `update(deltaTime, elapsedTime)` | Animation hook receiving time in seconds |
 | `noLoop()` | Stop future updates |
-| `dispose()` | Stop updates, remove listeners, clear input state, and return the instance |
+| `dispose()` | Stop updates, remove listeners, and clear input state; returns nothing |
 | `isKeyPressed(code)` | Check a physical key, or any key when omitted |
 | `isMousePressed(button = 0)` | Check a button while the pointer is inside the canvas |
 | `mousePos()` | Return the pointer position as a `Vector`, or `null` outside the canvas |
@@ -281,9 +291,10 @@ Arithmetic, dot product, distance, and angle methods accept a vector or separate
 ## Behavior notes
 
 - Drawing coordinates are canvas units; angles are radians. `circle` takes a radius, while `ellipse` takes width and height.
-- `setup()` runs during construction, followed by the first `update()` unless the loop was stopped in `setup()`. Initialize sketch state in `setup()` so it is available to that first update. Update times are in seconds, with zero delta and elapsed time on the first update.
+- Construction prepares the canvas and context without registering input listeners or calling lifecycle hooks. Call `start()` after construction completes; `attach()` does this automatically. Subclass fields and private members are initialized before the hooks run.
+- `start()` synchronously calls `setup()`, followed by the first `update()` unless `noLoop()` or `dispose()` was called. Repeated calls do nothing, including after disposal or failed startup. Update times are in seconds, with zero delta and elapsed time on the first update.
 - `noLoop()` stops future updates. `dispose()` also removes listeners and clears input state; repeated disposal is safe. Neither removes the canvas element, and there is no loop restart method.
-- If construction fails, registered listeners are removed. `Canvas.attach()` also removes the canvas it created; constructing with an existing canvas leaves that element in place.
+- If startup fails, the sketch is disposed and the error is rethrown. `Canvas.attach()` removes its generated canvas if construction or startup fails; a caller-owned canvas remains in place.
 - `push()` and `pop()` save and restore transforms and styles. `resize()` clears pixels and saved state; `reset()` restores drawing defaults and the transform without clearing pixels.
 - Shapes compose ordered layers and contours; contours erase earlier layers. Empty geometry has zero-sized bounds. Shape bounds enclose rotated layer bounding boxes and may be conservative around curves.
 - Rendering expands and rounds bounds for strokes and shadows; geometric bounding boxes exclude that padding.
@@ -308,6 +319,8 @@ After building, `npm run test:coverage` runs Chromium tests and writes coverage 
 To view the demo, open `demo/index.html` in your browser after building.
 
 ## Migration
+
+Direct construction no longer starts input or animation. Call `sketch.start()` after `new Sketch(...)` returns. Existing `Sketch.attach(...)` calls still start automatically.
 
 Replace calls to the removed `destroy()` method with `dispose()` for canvas cleanup, matching the sibling libraries.
 

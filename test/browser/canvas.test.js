@@ -26,6 +26,43 @@ test.describe('Canvas', () => {
             await expect(canvas).toHaveAttribute('tabindex', '0');
         });
 
+        test('starts after subclass fields and constructor state are initialized', async ({ page }) => {
+            const values = await page.evaluate(() => {
+                class Sketch extends F5.Canvas {
+                    frames = 0;
+
+                    #value = 1;
+
+                    constructor(...args) {
+                        super(...args);
+                        this.#value = 7;
+                    }
+
+                    setup() {
+                        this.setupValue = this.#value;
+                    }
+
+                    update() {
+                        this.frames += 1;
+                        this.updateValue = this.#value;
+                        this.noLoop();
+                    }
+                }
+
+                window.sketch = Sketch.attach(document.getElementById('root'));
+
+                return {
+                    setup: window.sketch.setupValue,
+                    update: window.sketch.updateValue,
+                    frames: window.sketch.frames,
+                };
+            });
+
+            expect(values.setup).toBe(7);
+            expect(values.update).toBe(7);
+            expect(values.frames).toBe(1);
+        });
+
         for (const hook of ['setup', 'update']) {
             test(`removes the generated canvas when ${hook} throws`, async ({ page }) => {
                 const message = await page.evaluate((hook) => {
@@ -108,6 +145,7 @@ test.describe('Canvas', () => {
                 }
 
                 window.sketch = new Sketch(node);
+                window.sketch.start();
             });
 
             const canvas = page.locator('#canvas');
@@ -118,7 +156,7 @@ test.describe('Canvas', () => {
             await expect(canvas).toHaveCSS('outline-color', 'rgb(255, 0, 0)');
         });
 
-        test('keeps the caller canvas when construction fails', async ({ page }) => {
+        test('keeps the caller canvas when startup fails', async ({ page }) => {
             const message = await page.evaluate(() => {
                 class Sketch extends F5.Canvas {
                     setup() {
@@ -127,7 +165,7 @@ test.describe('Canvas', () => {
                 }
 
                 try {
-                    new Sketch(document.getElementById('canvas'));
+                    new Sketch(document.getElementById('canvas')).start();
                 } catch (error) {
                     return error.message;
                 }

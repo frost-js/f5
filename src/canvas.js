@@ -32,10 +32,11 @@ export default class Canvas {
     #now;
     #previousTime = null;
     #requestAnimationFrame;
+    #started = false;
     #startTime = null;
 
     /**
-     * Creates a new Canvas with a new canvas element.
+     * Creates a canvas element and starts a fully constructed Canvas.
      * @param {HTMLElement} [parent=document.body] The parent node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
@@ -48,7 +49,9 @@ export default class Canvas {
         parent.append(canvas);
 
         try {
-            return new this(canvas, width, height, options);
+            const sketch = new this(canvas, width, height, options);
+
+            return sketch.start();
         } catch (error) {
             canvas.remove();
             throw error;
@@ -56,7 +59,7 @@ export default class Canvas {
     }
 
     /**
-     * Creates a Canvas.
+     * Creates a Canvas without starting input or lifecycle hooks.
      * @param {HTMLCanvasElement} node The canvas node.
      * @param {number} [width=600] The canvas width.
      * @param {number} [height=400] The canvas height.
@@ -85,56 +88,14 @@ export default class Canvas {
         if (!this.#node.hasAttribute('tabindex')) {
             this.#node.setAttribute('tabindex', '0');
         }
-
-        try {
-            this.#events();
-            this.setup();
-
-            const run = () => {
-                if (this.#disposed || !this.#loop) {
-                    return;
-                }
-
-                const now = this.#now();
-
-                if (this.#startTime === null) {
-                    this.#startTime = now;
-                }
-
-                const deltaTime = this.#previousTime === null ?
-                    0 :
-                    (now - this.#previousTime) / 1000;
-                const elapsedTime = (now - this.#startTime) / 1000;
-
-                this.#previousTime = now;
-
-                this.update(deltaTime, elapsedTime);
-
-                if (!this.#loop) {
-                    return;
-                }
-
-                this.#frameId = this.#requestAnimationFrame(() => {
-                    this.#frameId = null;
-
-                    run();
-                });
-            };
-
-            run();
-        } catch (error) {
-            this.dispose();
-            throw error;
-        }
     }
 
     /**
      * Stops the loop, removes event listeners, and clears input state.
-     * @returns {Canvas} The Canvas.
      */
     dispose() {
         if (this.#disposed) {
-            return this;
+            return;
         }
 
         this.noLoop();
@@ -152,8 +113,6 @@ export default class Canvas {
         this.#keysDown.clear();
         this.#mouseX = null;
         this.#mouseY = null;
-
-        return this;
     }
 
     /**
@@ -282,10 +241,65 @@ export default class Canvas {
     }
 
     /**
-     * Initializes sketch state during construction, before the first update.
+     * Initializes sketch state once during start(), before the first update.
      */
     setup() {
 
+    }
+
+    /**
+     * Starts input, setup, and updates once after construction.
+     * @returns {Canvas} The Canvas; repeated calls and calls after disposal do nothing.
+     */
+    start() {
+        if (this.#started || this.#disposed) {
+            return this;
+        }
+
+        this.#started = true;
+
+        try {
+            this.#events();
+            this.setup();
+
+            const run = () => {
+                if (this.#disposed || !this.#loop) {
+                    return;
+                }
+
+                const now = this.#now();
+
+                if (this.#startTime === null) {
+                    this.#startTime = now;
+                }
+
+                const deltaTime = this.#previousTime === null ?
+                    0 :
+                    (now - this.#previousTime) / 1000;
+                const elapsedTime = (now - this.#startTime) / 1000;
+
+                this.#previousTime = now;
+
+                this.update(deltaTime, elapsedTime);
+
+                if (!this.#loop) {
+                    return;
+                }
+
+                this.#frameId = this.#requestAnimationFrame(() => {
+                    this.#frameId = null;
+
+                    run();
+                });
+            };
+
+            run();
+        } catch (error) {
+            this.dispose();
+            throw error;
+        }
+
+        return this;
     }
 
     /**
