@@ -16,7 +16,7 @@ export default [
         ...nodeConfig,
         files: [
             '*.config.js',
-            'test/**/*.js',
+            'test/support/server/**/*.js',
         ],
     },
     {

@@ -161,7 +161,7 @@ Run `npm run build` before the standalone browser, coverage, headed, or UI comma
 
 Tests use `test/unit`, `test/browser`, shared setup in `test/setup`, and fixtures/server files in `test/support`. Browser tests exercise the built UMD library; distribution checks also verify ESM, minified UMD, and source imports. The browser fixture checks uncaught errors and cleans up its sketch.
 
-Coverage is collected from the unminified UMD bundle and mapped to `src/`. Reports are written to `coverage/` (HTML and LCOV) and `test-results/coverage/`. This is **browser coverage**, not a merged unit/browser total: unit-only geometry branches remain uncovered in that report. Codecov compares against the recorded project coverage, while patch coverage is informational.
+Coverage is collected from the unminified UMD bundle and mapped to `src/`. Reports are written to `coverage/` (HTML and LCOV) and `test-results/coverage/`. This is **browser coverage**, not a merged unit/browser total: unit-only geometry branches remain uncovered in that report. Codecov uses the sibling project policy: a 95% project coverage target with a 5% threshold; patch coverage is informational.
 
 To browse the self-contained demos:
 
@@ -176,7 +176,7 @@ Open `http://127.0.0.1:4173/demo/index.html`. Set `PORT` to change the server an
 
 The build writes `f5.esm.js`, `f5.esm.min.js`, `f5.js`, and `f5.min.js`, each with a `.map` file. Keep `dist/` committed: CI rebuilds it and rejects stale or untracked bundles. The package includes `src`, `dist`, the README, and license.
 
-The package root now resolves to built ESM instead of `src/index.js`. Existing `window.F5`, UMD filenames, and named exports are retained. Explicit `@fr0st/f5/src/*`, `@fr0st/f5/dist/*`, and `@fr0st/f5/package.json` imports are supported. Other package subpaths are restricted by the export map. Legacy capitalized source directories were removed by the baseline refactor; use the root exports instead of internal paths. Review these path changes when choosing the next release version.
+The package root now resolves to built ESM instead of `src/index.js`. Existing `window.F5`, UMD filenames, and named exports are retained. Explicit `@fr0st/f5/src/*` and `@fr0st/f5/dist/*` imports are supported. Other package subpaths, including `@fr0st/f5/package.json`, are restricted by the export map. Legacy capitalized source directories were removed by the baseline refactor; use the root exports instead of internal paths. Review these path changes when choosing the next release version.
 
 ## Releases
 

@@ -28,8 +28,7 @@
             "default": "./dist/f5.esm.js"
         },
         "./dist/*": "./dist/*",
-        "./src/*": "./src/*",
-        "./package.json": "./package.json"
+        "./src/*": "./src/*"
     },
     "main": "./dist/f5.esm.js",
     "jsdelivr": "./dist/f5.min.js",
