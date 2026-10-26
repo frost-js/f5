@@ -20,7 +20,7 @@ Lightweight 2D canvas drawing and animation with paths, layered shapes, hit test
 - No runtime dependencies
 - JSDoc-powered IntelliSense
 
-See the [demos](demo/index.html) for drawing, animation, and input examples.
+Explore [image annotation](demo/annotation.html), an interactive [seating plan](demo/seating.html), and an animated [delivery map](demo/delivery.html). The [drawing reference](demo/reference.html) collects focused recipes for primitives, styles, paths, and transforms.
 
 ## Installation
 

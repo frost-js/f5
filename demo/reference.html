@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" data-ui-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawing reference · F5</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
+    <link rel="stylesheet" href="assets/demo.css">
+    <script src="../dist/f5.js" defer></script>
+    <script src="assets/reference.js" defer></script>
+</head>
+
+<body>
+    <aside class="demo-sidebar bg-body border-end">
+        <a class="d-flex align-items-center gap-2 fw-bold fs-4 text-decoration-none mb-4" href="index.html">
+            <span class="badge bg-primary bg-gradient" aria-hidden="true">F</span>
+            <span>F5</span>
+        </a>
+        <nav class="nav nav-pills flex-wrap flex-lg-column gap-1" aria-label="Canvas examples">
+            <a class="nav-link" href="index.html">Overview</a>
+            <a class="nav-link" href="annotation.html">Image annotation</a>
+            <a class="nav-link" href="seating.html">Seating plan</a>
+            <a class="nav-link" href="delivery.html">Delivery map</a>
+            <a class="nav-link active" href="reference.html" aria-current="page">Drawing reference</a>
+        </nav>
+        <p class="small text-body-secondary mt-4 mb-0">Canvas drawing and animation.<br><a href="../README.md">API reference</a></p>
+    </aside>
+    <main class="demo-main container-fluid py-4 py-lg-5">
+        <header class="mb-4">
+            <span class="badge bg-primary-subtle text-primary-subtle mb-3">Reference</span>
+            <h1 class="display-5">Drawing reference</h1>
+            <p class="lead text-body-secondary mb-0">Six building blocks used throughout the application examples. Adapt a recipe, then see it in context in one of the demos.</p>
+        </header>
+
+        <section class="row g-4 mb-5" aria-label="Drawing techniques">
+            <div class="col-xl-6">
+                <article class="card card-body h-100 p-3 p-md-4 min-w-0">
+                    <h2 class="h4" id="primitives-heading">Primitives</h2>
+                    <p class="text-body-secondary">Combine familiar geometry with fills and strokes.</p>
+                    <canvas class="d-block w-100 h-auto border rounded mb-3" id="reference-primitives" width="360" height="220" role="img" aria-labelledby="primitives-heading">Combine familiar geometry with fills and strokes.</canvas>
+                    <pre class="bg-body-tertiary p-3 rounded overflow-auto mb-0"><code>context.fill(&#x27;#2563eb&#x27;).noStroke()
+    .circle(80, 110, 42)
+    .rect(155, 68, 100, 84)
+    .noFill().stroke(&#x27;#0d9488&#x27;).strokeWidth(4)
+    .triangle(250, 160, 295, 65, 335, 160);</code></pre>
+                </article>
+            </div>
+            <div class="col-xl-6">
+                <article class="card card-body h-100 p-3 p-md-4 min-w-0">
+                    <h2 class="h4" id="styles-heading">Gradients and text</h2>
+                    <p class="text-body-secondary">Use a gradient as a fill, then place a text label.</p>
+                    <canvas class="d-block w-100 h-auto border rounded mb-3" id="reference-styles" width="360" height="220" role="img" aria-labelledby="styles-heading">Use a gradient as a fill, then place a text label.</canvas>
+                    <pre class="bg-body-tertiary p-3 rounded overflow-auto mb-0"><code>const gradient = context.linearGradient(30, 0, 330, 0);
+
+gradient.addColorStop(0, &#x27;#2563eb&#x27;);
+gradient.addColorStop(1, &#x27;#0d9488&#x27;);
+context.fill(gradient).noStroke().rect(30, 40, 300, 140)
+    .fill(&#x27;#fff&#x27;).font(&#x27;sans-serif&#x27;).fontSize(32)
+    .fontWeight(&#x27;bold&#x27;).textAlign(&#x27;center&#x27;)
+    .textBaseline(&#x27;middle&#x27;).text(&#x27;Hello, canvas.&#x27;, 180, 110);</code></pre>
+                </article>
+            </div>
+            <div class="col-xl-6">
+                <article class="card card-body h-100 p-3 p-md-4 min-w-0">
+                    <h2 class="h4" id="transforms-heading">Saved transforms</h2>
+                    <p class="text-body-secondary">Isolate each transform with push() and pop().</p>
+                    <canvas class="d-block w-100 h-auto border rounded mb-3" id="reference-transforms" width="360" height="220" role="img" aria-labelledby="transforms-heading">Isolate each transform with push() and pop().</canvas>
+                    <pre class="bg-body-tertiary p-3 rounded overflow-auto mb-0"><code>context.noFill().stroke(&#x27;#94a3b8&#x27;).strokeWidth(2)
+    .rect(120, 75, 120, 70)
+    .push().translate(180, 110).rotate(Math.PI / 5)
+    .noStroke().fill(&#x27;#2563eb&#x27;).rect(-60, -35, 120, 70)
+    .pop();</code></pre>
+                </article>
+            </div>
+            <div class="col-xl-6">
+                <article class="card card-body h-100 p-3 p-md-4 min-w-0">
+                    <h2 class="h4" id="paths-heading">Reusable paths</h2>
+                    <p class="text-body-secondary">Build geometry once and draw it with different styles.</p>
+                    <canvas class="d-block w-100 h-auto border rounded mb-3" id="reference-paths" width="360" height="220" role="img" aria-labelledby="paths-heading">Build geometry once and draw it with different styles.</canvas>
+                    <pre class="bg-body-tertiary p-3 rounded overflow-auto mb-0"><code>const path = context.createPath()
+    .vertex(35, 150)
+    .bezierVertex(100, 0, 240, 220, 325, 70);
+
+context.noFill().stroke(&#x27;#2563eb&#x27;)
+    .strokeWidth(5).drawPath(path)
+    .noStroke().fill(&#x27;#0d9488&#x27;)
+    .circle(35, 150, 7).circle(325, 70, 7);</code></pre>
+                </article>
+            </div>
+            <div class="col-xl-6">
+                <article class="card card-body h-100 p-3 p-md-4 min-w-0">
+                    <h2 class="h4" id="shapes-heading">Layers and contours</h2>
+                    <p class="text-body-secondary">Subtract an inner contour from a filled shape.</p>
+                    <canvas class="d-block w-100 h-auto border rounded mb-3" id="reference-shapes" width="360" height="220" role="img" aria-labelledby="shapes-heading">Subtract an inner contour from a filled shape.</canvas>
+                    <pre class="bg-body-tertiary p-3 rounded overflow-auto mb-0"><code>const ring = context.createShape(180, 110)
+    .layer((path) =&gt; path.circle(0, 0, 72))
+    .contour((path) =&gt; path.circle(0, 0, 36));
+
+context.fill(&#x27;#0d9488&#x27;).noStroke().drawShape(ring);</code></pre>
+                </article>
+            </div>
+            <div class="col-xl-6">
+                <article class="card card-body h-100 p-3 p-md-4 min-w-0">
+                    <h2 class="h4" id="erase-heading">Erasing</h2>
+                    <p class="text-body-secondary">Remove pixels while retaining the surrounding drawing.</p>
+                    <canvas class="d-block w-100 h-auto border rounded mb-3" id="reference-erase" width="360" height="220" role="img" aria-labelledby="erase-heading">Remove pixels while retaining the surrounding drawing.</canvas>
+                    <pre class="bg-body-tertiary p-3 rounded overflow-auto mb-0"><code>context.fill(&#x27;#2563eb&#x27;).noStroke()
+    .rect(40, 40, 280, 140)
+    .erase((path) =&gt; path.circle(180, 110, 52));</code></pre>
+                </article>
+            </div>
+        </section>
+        <p class="text-body-secondary mb-5">These are focused recipes, not an exhaustive API listing. The <a href="../README.md">README</a> documents the full drawing, geometry, and lifecycle APIs.</p>
+
+        <footer class="border-top pt-4 text-body-secondary">
+            Source and API: <a href="../README.md">README</a> · <a href="https://github.com/elusivecodes/F5">GitHub</a> · <a href="assets/reference.js">Example source</a>
+        </footer>
+    </main>
+</body>
+
+</html>

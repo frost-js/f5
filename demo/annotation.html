@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en" data-ui-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave a clear visual note · F5</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
+    <link rel="stylesheet" href="assets/demo.css">
+    <script src="../dist/f5.js" defer></script>
+    <script src="assets/annotation.js" defer></script>
+</head>
+
+<body>
+    <aside class="demo-sidebar bg-body border-end">
+        <a class="d-flex align-items-center gap-2 fw-bold fs-4 text-decoration-none mb-4" href="index.html">
+            <span class="badge bg-primary bg-gradient" aria-hidden="true">F</span>
+            <span>F5</span>
+        </a>
+        <nav class="nav nav-pills flex-wrap flex-lg-column gap-1" aria-label="Canvas examples">
+            <a class="nav-link" href="index.html">Overview</a>
+            <a class="nav-link active" href="annotation.html" aria-current="page">Image annotation</a>
+            <a class="nav-link" href="seating.html">Seating plan</a>
+            <a class="nav-link" href="delivery.html">Delivery map</a>
+            <a class="nav-link" href="reference.html">Drawing reference</a>
+        </nav>
+        <p class="small text-body-secondary mt-4 mb-0">Canvas drawing and animation.<br><a href="../README.md">API reference</a></p>
+    </aside>
+    <main class="demo-main container-fluid py-4 py-lg-5">
+        <header class="mb-4">
+            <span class="badge bg-primary-subtle text-primary-subtle mb-3">Interactive example</span>
+            <h1 class="display-5">Leave a clear visual note</h1>
+            <p class="lead text-body-secondary mb-0">Annotate a workspace concept, or upload an image of your own. Drag to draw; undo removes the last mark.</p>
+        </header>
+
+        <section class="card shadow-sm mb-5" aria-labelledby="workspace-heading">
+            <div class="card-body p-3 p-md-4">
+                <h2 class="h5 mb-3" id="workspace-heading">Studio refresh · review board</h2>
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-6 col-md-3">
+                        <label class="d-block small fw-bold mb-1" for="annotation-tool">Tool</label>
+                        <select class="input-outline rounded" id="annotation-tool">
+                            <option value="arrow">Arrow</option>
+                            <option value="rectangle">Rectangle</option>
+                            <option value="pen">Freehand pen</option>
+                        </select>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="d-block small fw-bold mb-1" for="annotation-color">Color</label>
+                        <input class="input-outline input-color rounded" id="annotation-color" type="color" value="#e11d48">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="d-block small fw-bold mb-1" for="annotation-width">Stroke <output id="width-value">4</output> px</label>
+                        <input class="input-range" id="annotation-width" type="range" min="2" max="12" value="4">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="d-block small fw-bold mb-1" for="annotation-image">Use your image</label>
+                        <input class="input-outline rounded" id="annotation-image" type="file" accept="image/png,image/jpeg,image/webp">
+                    </div>
+                </div>
+                <canvas class="d-block w-100 h-auto border rounded bg-body-tertiary" id="annotation-canvas" width="800" height="480" tabindex="0" aria-label="Image annotation drawing surface" aria-describedby="annotation-help">Use a browser with canvas support to annotate images.</canvas>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                    <button class="btn btn-primary" id="download-image" type="button" disabled>Download PNG</button>
+                    <button class="btn btn-outline-secondary" id="undo-mark" type="button" disabled>Undo last mark</button>
+                    <button class="btn btn-outline-secondary" id="reset-annotation" type="button" disabled>Reset example</button>
+                    <span class="small text-body-secondary ms-auto" id="annotation-count">Loading sample…</span>
+                </div>
+                <p class="small text-body-secondary mt-3 mb-1" id="annotation-help">Draw with a mouse, pen, or touch. With the canvas focused, Ctrl/⌘ Z undoes a mark and Escape cancels the current stroke. Uploads stay in your browser.</p>
+                <p class="small mb-0" id="annotation-status" role="status">Preparing the sample image.</p>
+            </div>
+        </section>
+        <section class="row g-4 mb-5" aria-labelledby="technique-heading">
+            <div class="col-lg-5">
+                <h2 class="h4" id="technique-heading">How it works</h2>
+                <p class="text-body-secondary">Keep the image and annotation data separate. Every edit redraws the image, then replays the marks through CanvasContext. Undo removes one mark; the browser canvas API exports the resulting PNG. Pointer capture keeps a stroke connected when it leaves the canvas.</p>
+                <a href="assets/annotation.js">Read the complete example</a>
+            </div>
+            <div class="col-lg-7 min-w-0">
+                <pre class="bg-body-tertiary p-4 rounded overflow-auto mb-0"><code>context.drawImage(background);
+context.noFill().stroke(mark.color).strokeWidth(mark.width);
+context.begin();
+for (const point of mark.points) {
+    context.vertex(point.x, point.y);
+}
+context.end();</code></pre>
+            </div>
+        </section>
+
+        <footer class="border-top pt-4 text-body-secondary">
+            Source and API: <a href="../README.md">README</a> · <a href="https://github.com/elusivecodes/F5">GitHub</a> · <a href="assets/annotation.js">Example source</a>
+        </footer>
+    </main>
+</body>
+
+</html>
