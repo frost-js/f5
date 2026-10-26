@@ -4,7 +4,48 @@ import { setupCanvas } from '../setup/canvas.js';
 test.describe('Canvas', () => {
     test.beforeEach(setupCanvas);
 
+    test.describe('constructor', () => {
+        test('rejects a missing canvas element', async ({ page }) => {
+            await expect(page.evaluate(() => new F5.Canvas(null)))
+                .rejects.toThrow('Canvas requires a canvas element.');
+        });
+
+        test('rejects an element without a 2D context', async ({ page }) => {
+            await expect(page.evaluate(() => new F5.Canvas(document.getElementById('root'))))
+                .rejects.toThrow('CanvasContext requires a 2D canvas context.');
+        });
+    });
+
     test.describe('#attach', () => {
+        test('supports a canvas without overridden lifecycle or input hooks', async ({ page }) => {
+            await page.evaluate(() => {
+                window.sketch = F5.Canvas.attach(document.getElementById('root'), 100, 100);
+            });
+
+            const canvas = page.locator('#root canvas');
+
+            await canvas.hover({ position: { x: 20, y: 25 } });
+            await page.mouse.down();
+
+            expect(await page.evaluate(() => window.sketch.mousePos().x)).toBe(20);
+            expect(await page.evaluate(() => window.sketch.mousePos().y)).toBe(25);
+            expect(await page.evaluate(() => window.sketch.isMousePressed())).toBe(true);
+
+            await page.mouse.up();
+            await canvas.click();
+            await canvas.focus();
+            await page.keyboard.down('a');
+
+            expect(await page.evaluate(() => window.sketch.isKeyPressed('KeyA'))).toBe(true);
+
+            await page.keyboard.up('a');
+            await page.mouse.move(400, 400);
+
+            expect(await page.evaluate(() => window.sketch.isKeyPressed())).toBe(false);
+            expect(await page.evaluate(() => window.sketch.isMousePressed())).toBe(false);
+            expect(await page.evaluate(() => window.sketch.mousePos())).toBeNull();
+        });
+
         test('attaches a canvas to a parent element', async ({ page }) => {
             await page.evaluate(() => {
                 const { Canvas } = window.F5;

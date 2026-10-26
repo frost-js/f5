@@ -30,9 +30,67 @@ test.describe('Shape', () => {
             expect(result.hole).toBe(false);
             expect(result.outside).toBe(false);
         });
+
+        test('allows later layers to fill a contour again', async ({ page }) => {
+            const shape = await page.evaluateHandle(() => {
+                return new F5.Shape(document.getElementById('canvas').getContext('2d'))
+                    .layer((path) => path.rect(0, 0, 40, 40))
+                    .contour((path) => path.rect(10, 10, 20, 20))
+                    .layer((path) => path.rect(15, 15, 10, 10));
+            });
+
+            expect(await shape.evaluate((shape) => shape.containsPoint(5, 5))).toBe(true);
+            expect(await shape.evaluate((shape) => shape.containsPoint(12, 12))).toBe(false);
+            expect(await shape.evaluate((shape) => shape.containsPoint(20, 20))).toBe(true);
+            expect(await shape.evaluate((shape) => shape.containsPoint(45, 45))).toBe(false);
+        });
+
+        test('transforms hit tests around a nonzero anchor', async ({ page }) => {
+            const shape = await page.evaluateHandle(() => {
+                return new F5.Shape(document.getElementById('canvas').getContext('2d'), 30, 40, Math.PI / 2, 10, 10)
+                    .layer((path) => path.rect(0, 0, 20, 10));
+            });
+
+            expect(await shape.evaluate((shape) => shape.containsPoint(45, 45))).toBe(true);
+            expect(await shape.evaluate((shape) => shape.containsPoint(35, 45))).toBe(false);
+
+            await shape.evaluate((shape) => shape.x = 50);
+
+            expect(await shape.evaluate((shape) => shape.containsPoint(45, 45))).toBe(false);
+            expect(await shape.evaluate((shape) => shape.containsPoint(65, 45))).toBe(true);
+        });
     });
 
     test.describe('#getBoundingBox', () => {
+        test('unions visible layers without expanding for contours', async ({ page }) => {
+            const bounds = await page.evaluate(() => {
+                return new F5.Shape(document.getElementById('canvas').getContext('2d'), 5, 6)
+                    .layer((path) => path.rect(10, 20, 30, 40))
+                    .layer((path) => path.rect(-10, -20, 5, 5))
+                    .contour((path) => path.rect(-100, -100, 200, 200))
+                    .getBoundingBox();
+            });
+
+            expect(bounds.left).toBe(-5);
+            expect(bounds.top).toBe(-14);
+            expect(bounds.right).toBe(45);
+            expect(bounds.bottom).toBe(66);
+        });
+
+        test('returns empty bounds when there are only contours', async ({ page }) => {
+            const shape = await page.evaluateHandle(() => {
+                return new F5.Shape(document.getElementById('canvas').getContext('2d'))
+                    .contour((path) => path.rect(10, 20, 30, 40));
+            });
+            const bounds = await shape.evaluate((shape) => shape.getBoundingBox());
+
+            expect(bounds.x).toBe(0);
+            expect(bounds.y).toBe(0);
+            expect(bounds.width).toBe(0);
+            expect(bounds.height).toBe(0);
+            expect(await shape.evaluate((shape) => shape.containsPoint(15, 25))).toBe(false);
+        });
+
         test('rotates layer bounds around the shape anchor', async ({ page }) => {
             const bounds = await page.evaluate(() => {
                 const { Shape } = window.F5;
@@ -65,6 +123,41 @@ test.describe('Shape', () => {
 
             expect(size.width).toBe(0);
             expect(size.height).toBe(0);
+        });
+
+        test('erases contours and paints later layers in order', async ({ page }) => {
+            const canvas = await page.evaluateHandle(() => {
+                const shape = new F5.Shape(document.getElementById('canvas').getContext('2d'))
+                    .layer((path) => path.rect(0, 0, 40, 40))
+                    .contour((path) => path.rect(10, 10, 20, 20))
+                    .layer((path) => path.rect(15, 15, 10, 10));
+
+                return shape.render({ fillStyle: '#ff0000' });
+            });
+
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(5, 5, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(12, 12, 1, 1).data]))
+                .toEqual([0, 0, 0, 0]);
+            expect(await canvas.evaluate((node) => [...node.getContext('2d').getImageData(20, 20, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+        });
+
+        test('rotates rendered geometry around a nonzero anchor', async ({ page }) => {
+            const context = await page.evaluateHandle(() => {
+                const context = new F5.CanvasContext(document.getElementById('canvas'), 80, 80);
+                const shape = context.createShape(30, 40, Math.PI / 2, 10, 10)
+                    .layer((path) => path.rect(0, 0, 20, 10));
+
+                context.noStroke().fill('#ff0000').drawShape(shape);
+
+                return context;
+            });
+
+            expect(await context.evaluate((context) => [...context.getImage(45, 45, 1, 1).data]))
+                .toEqual([255, 0, 0, 255]);
+            expect(await context.evaluate((context) => [...context.getImage(35, 45, 1, 1).data]))
+                .toEqual([0, 0, 0, 0]);
         });
 
         test('positions the layers and their shadows inside the rendered bounds', async ({ page }) => {
