@@ -318,16 +318,6 @@ After building, `npm run test:coverage` runs Chromium tests and writes coverage 
 
 To view the demo, open `demo/index.html` in your browser after building.
 
-## Migration
-
-Direct construction no longer starts input or animation. Call `sketch.start()` after `new Sketch(...)` returns. Existing `Sketch.attach(...)` calls still start automatically.
-
-Replace calls to the removed `destroy()` method with `dispose()` for canvas cleanup, matching the sibling libraries.
-
-The package root resolves to built ESM instead of `src/index.js`. The UMD global `F5`, UMD filenames, and five named exports are retained.
-
-Use root exports in place of the removed capitalized source directories. Explicit `@fr0st/f5/src/*` and `@fr0st/f5/dist/*` imports remain available; other package subpaths, including `@fr0st/f5/package.json`, are restricted by the export map.
-
 ## License
 
 F5 is released under the [MIT License](./LICENSE).
