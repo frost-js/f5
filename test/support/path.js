@@ -55,15 +55,8 @@ export function createPathRenderEnvironment() {
         },
     };
     const canvas = {
-        attributes: {},
-        getAttribute(name) {
-            return this.attributes[name] ?? null;
-        },
         getContext() {
             return context;
-        },
-        setAttribute(name, value) {
-            this.attributes[name] = String(value);
         },
     };
 
@@ -97,15 +90,8 @@ export function createShapeRenderEnvironment() {
         },
     };
     const outerCanvas = {
-        attributes: {},
-        getAttribute(name) {
-            return this.attributes[name] ?? null;
-        },
         getContext() {
             return outerContext;
-        },
-        setAttribute(name, value) {
-            this.attributes[name] = String(value);
         },
     };
     const layerCanvases = [];
@@ -132,15 +118,8 @@ export function createShapeRenderEnvironment() {
                     },
                 };
                 const layerCanvas = {
-                    attributes: {},
-                    getAttribute(name) {
-                        return this.attributes[name] ?? null;
-                    },
                     getContext() {
                         return layerContext;
-                    },
-                    setAttribute(name, value) {
-                        this.attributes[name] = String(value);
                     },
                 };
 

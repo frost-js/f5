@@ -141,8 +141,8 @@ test.describe('Path', () => {
                 strokeStyle: null,
             });
 
-            expect(canvas.getAttribute('width')).toBe('30');
-            expect(canvas.getAttribute('height')).toBe('40');
+            expect(canvas.width).toBe(30);
+            expect(canvas.height).toBe(40);
             expect(pathRenderEnvironment.context.operations[0]).toEqual(['translate', -10, -20]);
             expect(pathRenderEnvironment.context.operations[1][0]).toBe('fill');
         });
@@ -159,8 +159,8 @@ test.describe('Path', () => {
                 strokeStyle: '#000',
             });
 
-            expect(canvas.getAttribute('width')).toBe('38');
-            expect(canvas.getAttribute('height')).toBe('48');
+            expect(canvas.width).toBe(38);
+            expect(canvas.height).toBe(48);
             expect(pathRenderEnvironment.context.operations[0]).toEqual(['translate', -6, -16]);
             expect(pathRenderEnvironment.context.operations[1][0]).toBe('stroke');
         });
@@ -181,8 +181,8 @@ test.describe('Path', () => {
                 strokeStyle: null,
             });
 
-            expect(canvas.getAttribute('width')).toBe('37');
-            expect(canvas.getAttribute('height')).toBe('46');
+            expect(canvas.width).toBe(37);
+            expect(canvas.height).toBe(46);
             expect(pathRenderEnvironment.context.operations[0]).toEqual(['translate', -10, -15]);
             expect(pathRenderEnvironment.context.operations[1][0]).toBe('fill');
         });
@@ -199,8 +199,8 @@ test.describe('Path', () => {
                 strokeStyle: null,
             });
 
-            expect(canvas.getAttribute('width')).toBe('31');
-            expect(canvas.getAttribute('height')).toBe('41');
+            expect(canvas.width).toBe(31);
+            expect(canvas.height).toBe(41);
             expect(pathRenderEnvironment.context.operations[0]).toEqual(['translate', -10, -20]);
             expect(pathRenderEnvironment.context.operations[1][0]).toBe('fill');
         });

@@ -36,10 +36,10 @@ export default class CanvasContext {
     });
 
     #context;
-    #hasVertex;
+    #hasVertex = false;
     #node;
     #options;
-    #states;
+    #states = [];
 
     /**
      * Creates a CanvasContext.
@@ -62,9 +62,6 @@ export default class CanvasContext {
             ...this.constructor.defaults,
             ...options,
         };
-
-        this.#states = [];
-        this.#hasVertex = false;
 
         this.resize(width, height);
     }
@@ -616,8 +613,8 @@ export default class CanvasContext {
         this.width = w;
         this.height = h;
 
-        this.#node.setAttribute('width', this.width);
-        this.#node.setAttribute('height', this.height);
+        this.#node.width = this.width;
+        this.#node.height = this.height;
 
         this.#states = [];
         this.#hasVertex = false;
@@ -730,16 +727,10 @@ export default class CanvasContext {
     text(text, x, y) {
         this.#applyStyles();
 
-        const font = [];
+        const { font, fontSize, fontWeight } = this.#options;
+        const weight = fontWeight ? `${fontWeight} ` : '';
 
-        if (this.#options.fontWeight) {
-            font.push(this.#options.fontWeight);
-        }
-
-        font.push(`${this.#options.fontSize}px`);
-        font.push(this.#options.font);
-
-        this.#context.font = font.join(' ');
+        this.#context.font = `${weight}${fontSize}px ${font}`;
         this.#context.textAlign = this.#options.textAlign;
         this.#context.textBaseline = this.#options.textBaseline;
 

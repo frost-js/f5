@@ -12,14 +12,19 @@ import { applyStyles, emptyBounds, getRenderBounds } from './render.js';
  * Stores reusable path geometry with bounds, hit testing, and rendering.
  */
 export default class Path {
-    #bounding;
+    #bounding = {
+        top: Number.POSITIVE_INFINITY,
+        right: Number.NEGATIVE_INFINITY,
+        bottom: Number.NEGATIVE_INFINITY,
+        left: Number.POSITIVE_INFINITY,
+    };
     #context;
-    #currentX;
-    #currentY;
-    #hasVertex;
+    #currentX = null;
+    #currentY = null;
+    #hasVertex = false;
     #path;
-    #subpathStartX;
-    #subpathStartY;
+    #subpathStartX = null;
+    #subpathStartY = null;
 
     /**
      * Creates a Path.
@@ -36,21 +41,7 @@ export default class Path {
         }
 
         this.#context = context;
-
         this.#path = new Path2D();
-
-        this.#hasVertex = false;
-        this.#currentX = null;
-        this.#currentY = null;
-        this.#subpathStartX = null;
-        this.#subpathStartY = null;
-
-        this.#bounding = {
-            top: Number.POSITIVE_INFINITY,
-            right: Number.NEGATIVE_INFINITY,
-            bottom: Number.NEGATIVE_INFINITY,
-            left: Number.POSITIVE_INFINITY,
-        };
     }
 
     /**
@@ -382,8 +373,8 @@ export default class Path {
             throw new Error('Unable to create a 2D canvas context.');
         }
 
-        canvas.setAttribute('width', renderBounds.width);
-        canvas.setAttribute('height', renderBounds.height);
+        canvas.width = renderBounds.width;
+        canvas.height = renderBounds.height;
 
         applyStyles(context, options);
         context.translate(-renderBounds.x, -renderBounds.y);

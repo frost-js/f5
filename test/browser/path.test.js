@@ -23,8 +23,8 @@ test.describe('Path', () => {
                     bounds: path.getBoundingBox(),
                     containsInside: path.containsPoint(15, 25),
                     containsOutside: path.containsPoint(5, 10),
-                    renderHeight: Number(rendered.getAttribute('height')),
-                    renderWidth: Number(rendered.getAttribute('width')),
+                    renderHeight: rendered.height,
+                    renderWidth: rendered.width,
                 };
             });
 

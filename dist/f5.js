@@ -403,14 +403,19 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	* Stores reusable path geometry with bounds, hit testing, and rendering.
 	*/
 	var Path = class {
-		#bounding;
+		#bounding = {
+			top: Number.POSITIVE_INFINITY,
+			right: Number.NEGATIVE_INFINITY,
+			bottom: Number.NEGATIVE_INFINITY,
+			left: Number.POSITIVE_INFINITY
+		};
 		#context;
-		#currentX;
-		#currentY;
-		#hasVertex;
+		#currentX = null;
+		#currentY = null;
+		#hasVertex = false;
 		#path;
-		#subpathStartX;
-		#subpathStartY;
+		#subpathStartX = null;
+		#subpathStartY = null;
 		/**
 		* Creates a Path.
 		* @param {CanvasRenderingContext2D} context The canvas context.
@@ -421,17 +426,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			if (typeof Path2D !== "function") throw new TypeError("Path requires Path2D support.");
 			this.#context = context;
 			this.#path = new Path2D();
-			this.#hasVertex = false;
-			this.#currentX = null;
-			this.#currentY = null;
-			this.#subpathStartX = null;
-			this.#subpathStartY = null;
-			this.#bounding = {
-				top: Number.POSITIVE_INFINITY,
-				right: Number.NEGATIVE_INFINITY,
-				bottom: Number.NEGATIVE_INFINITY,
-				left: Number.POSITIVE_INFINITY
-			};
 		}
 		/**
 		* Adds an arc.
@@ -725,8 +719,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			const canvas = document.createElement("canvas");
 			const context = canvas.getContext("2d");
 			if (!context) throw new Error("Unable to create a 2D canvas context.");
-			canvas.setAttribute("width", renderBounds.width);
-			canvas.setAttribute("height", renderBounds.height);
+			canvas.width = renderBounds.width;
+			canvas.height = renderBounds.height;
 			applyStyles(context, options);
 			context.translate(-renderBounds.x, -renderBounds.y);
 			if (options.fillStyle) context.fill(this.#path);
@@ -1029,7 +1023,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	*/
 	var Shape = class {
 		#context;
-		#layers;
+		#layers = [];
 		/**
 		* Creates a Shape.
 		* @param {CanvasRenderingContext2D} context The canvas context.
@@ -1046,7 +1040,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.angle = angle;
 			this.anchorX = anchorX;
 			this.anchorY = anchorY;
-			this.#layers = [];
 		}
 		/**
 		* Determines if the shape contains a point.
@@ -1130,15 +1123,15 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		render(options = {}) {
 			const canvas = document.createElement("canvas");
 			if (!this.#layers.length) {
-				canvas.setAttribute("width", 0);
-				canvas.setAttribute("height", 0);
+				canvas.width = 0;
+				canvas.height = 0;
 				return canvas;
 			}
 			const renderBounds = getRenderBounds(this.getBoundingBox(), options);
 			const context = canvas.getContext("2d");
 			if (!context) throw new Error("Unable to create a 2D canvas context.");
-			canvas.setAttribute("width", renderBounds.width);
-			canvas.setAttribute("height", renderBounds.height);
+			canvas.width = renderBounds.width;
+			canvas.height = renderBounds.height;
 			context.translate(this.x - renderBounds.x, this.y - renderBounds.y);
 			context.translate(this.anchorX, this.anchorY);
 			context.rotate(this.angle);
@@ -1207,10 +1200,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			textBaseline: "alphabetic"
 		});
 		#context;
-		#hasVertex;
+		#hasVertex = false;
 		#node;
 		#options;
-		#states;
+		#states = [];
 		/**
 		* Creates a CanvasContext.
 		* @param {HTMLCanvasElement} node The canvas node.
@@ -1228,8 +1221,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 				...this.constructor.defaults,
 				...options
 			};
-			this.#states = [];
-			this.#hasVertex = false;
 			this.resize(width, height);
 		}
 		/**
@@ -1670,8 +1661,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			if (![w, h].every((value) => Number.isFinite(value) && value >= 0)) throw new RangeError("Canvas dimensions must be finite, non-negative numbers.");
 			this.width = w;
 			this.height = h;
-			this.#node.setAttribute("width", this.width);
-			this.#node.setAttribute("height", this.height);
+			this.#node.width = this.width;
+			this.#node.height = this.height;
 			this.#states = [];
 			this.#hasVertex = false;
 			this.#applyStyles();
@@ -1764,11 +1755,9 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		*/
 		text(text, x, y) {
 			this.#applyStyles();
-			const font = [];
-			if (this.#options.fontWeight) font.push(this.#options.fontWeight);
-			font.push(`${this.#options.fontSize}px`);
-			font.push(this.#options.font);
-			this.#context.font = font.join(" ");
+			const { font, fontSize, fontWeight } = this.#options;
+			const weight = fontWeight ? `${fontWeight} ` : "";
+			this.#context.font = `${weight}${fontSize}px ${font}`;
 			this.#context.textAlign = this.#options.textAlign;
 			this.#context.textBaseline = this.#options.textBaseline;
 			if (this.#options.fillStyle) this.#context.fillText(text, x, y);
@@ -1874,20 +1863,20 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	*/
 	var Canvas = class {
 		#cancelAnimationFrame;
-		#destroyed;
+		#destroyed = false;
 		#eventTarget;
-		#frameId;
-		#keysDown;
-		#listeners;
-		#loop;
-		#mouseDown;
-		#mouseX;
-		#mouseY;
+		#frameId = null;
+		#keysDown = /* @__PURE__ */ new Set();
+		#listeners = [];
+		#loop = true;
+		#mouseDown = /* @__PURE__ */ new Set();
+		#mouseX = null;
+		#mouseY = null;
 		#node;
 		#now;
-		#previousTime;
+		#previousTime = null;
 		#requestAnimationFrame;
-		#startTime;
+		#startTime = null;
 		/**
 		* Creates a new Canvas with a new canvas element.
 		* @param {HTMLElement} [parent=document.body] The parent node.
@@ -1917,16 +1906,6 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			this.#cancelAnimationFrame = runtime.cancelAnimationFrame ?? this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
 			this.#now = runtime.now ?? (() => globalThis.performance.now());
 			this.#requestAnimationFrame = runtime.requestAnimationFrame ?? this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
-			this.#destroyed = false;
-			this.#frameId = null;
-			this.#loop = true;
-			this.#previousTime = null;
-			this.#startTime = null;
-			this.#listeners = [];
-			this.#keysDown = /* @__PURE__ */ new Set();
-			this.#mouseDown = /* @__PURE__ */ new Set();
-			this.#mouseX = null;
-			this.#mouseY = null;
 			this.context = new CanvasContext(this.#node, width, height);
 			this.#node.setAttribute("tabindex", "1");
 			this.#node.style.setProperty("outline", "0");
@@ -2077,22 +2056,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		* Attaches events for the Canvas.
 		*/
 		#events() {
-			const updateMouse = (e) => {
-				if (e.target === this.#node && Number.isFinite(e.offsetX) && Number.isFinite(e.offsetY)) {
-					this.#mouseX = e.offsetX;
-					this.#mouseY = e.offsetY;
-					return;
-				}
-				if (Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
-					const bounds = this.#node.getBoundingClientRect();
-					this.#mouseX = e.clientX - bounds.left;
-					this.#mouseY = e.clientY - bounds.top;
-				}
-			};
 			this.#addEventListener(this.#eventTarget, "mouseup", (e) => {
 				if (!this.#mouseDown.has(e.button)) return;
 				this.#mouseDown.delete(e.button);
-				updateMouse(e);
+				this.#updateMouse(e);
 				this.onMouseUp(e.button, e);
 			});
 			this.#addEventListener(this.#eventTarget, "keyup", (e) => {
@@ -2101,26 +2068,26 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 				this.onKeyUp(e.code, e);
 			});
 			this.#addEventListener(this.#node, "mouseenter", (e) => {
-				updateMouse(e);
+				this.#updateMouse(e);
 				this.onMouseEnter(e);
 			});
 			this.#addEventListener(this.#node, "mouseleave", (e) => {
-				updateMouse(e);
+				this.#updateMouse(e);
 				this.onMouseLeave(e);
 				this.#mouseX = null;
 				this.#mouseY = null;
 			});
 			this.#addEventListener(this.#node, "mousemove", (e) => {
-				updateMouse(e);
+				this.#updateMouse(e);
 				this.onMouseMove(this.#mouseX, this.#mouseY, e);
 			});
 			this.#addEventListener(this.#node, "mousedown", (e) => {
 				this.#mouseDown.add(e.button);
-				updateMouse(e);
+				this.#updateMouse(e);
 				this.onMouseDown(e.button, e);
 			});
 			this.#addEventListener(this.#node, "click", (e) => {
-				updateMouse(e);
+				this.#updateMouse(e);
 				this.onMouseClick(e.button, e);
 			});
 			this.#addEventListener(this.#node, "keydown", (e) => {
@@ -2128,6 +2095,22 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 				this.onKeyDown(e.code, e);
 				if (!e.repeat && typeof e.key === "string" && e.key.length === 1) this.onKeyPress(e.key, e);
 			});
+		}
+		/**
+		* Updates the canvas-local mouse coordinates from an event.
+		* @param {MouseEvent} event The mouse event.
+		*/
+		#updateMouse(event) {
+			if (event.target === this.#node && Number.isFinite(event.offsetX) && Number.isFinite(event.offsetY)) {
+				this.#mouseX = event.offsetX;
+				this.#mouseY = event.offsetY;
+				return;
+			}
+			if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+				const bounds = this.#node.getBoundingClientRect();
+				this.#mouseX = event.clientX - bounds.left;
+				this.#mouseY = event.clientY - bounds.top;
+			}
 		}
 	};
 

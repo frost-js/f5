@@ -28,8 +28,8 @@ test.describe('Shape', () => {
                 width: 0,
                 height: 0,
             });
-            expect(canvas.getAttribute('width')).toBe('0');
-            expect(canvas.getAttribute('height')).toBe('0');
+            expect(canvas.width).toBe(0);
+            expect(canvas.height).toBe(0);
             expect(shapeRenderEnvironment.outerContext.operations).toEqual([]);
         });
 
@@ -73,8 +73,8 @@ test.describe('Shape', () => {
                 strokeStyle: null,
             });
 
-            expect(canvas.getAttribute('width')).toBe('37');
-            expect(canvas.getAttribute('height')).toBe('46');
+            expect(canvas.width).toBe(37);
+            expect(canvas.height).toBe(46);
             expect(shapeRenderEnvironment.outerContext.operations[0]).toEqual(['translate', -10, -15]);
             expect(shapeRenderEnvironment.outerContext.operations[1][0]).toBe('translate');
             expect(shapeRenderEnvironment.outerContext.operations[1][1]).toBeCloseTo(0);

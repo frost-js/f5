@@ -9,7 +9,7 @@ import Vector from './vector.js';
  */
 export default class Shape {
     #context;
-    #layers;
+    #layers = [];
 
     /**
      * Creates a Shape.
@@ -28,8 +28,6 @@ export default class Shape {
         this.angle = angle;
         this.anchorX = anchorX;
         this.anchorY = anchorY;
-
-        this.#layers = [];
     }
 
     /**
@@ -147,8 +145,8 @@ export default class Shape {
         const canvas = document.createElement('canvas');
 
         if (!this.#layers.length) {
-            canvas.setAttribute('width', 0);
-            canvas.setAttribute('height', 0);
+            canvas.width = 0;
+            canvas.height = 0;
 
             return canvas;
         }
@@ -160,8 +158,8 @@ export default class Shape {
             throw new Error('Unable to create a 2D canvas context.');
         }
 
-        canvas.setAttribute('width', renderBounds.width);
-        canvas.setAttribute('height', renderBounds.height);
+        canvas.width = renderBounds.width;
+        canvas.height = renderBounds.height;
 
         context.translate(this.x - renderBounds.x, this.y - renderBounds.y);
         context.translate(this.anchorX, this.anchorY);

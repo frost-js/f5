@@ -19,20 +19,20 @@ import Vector from './vector.js';
  */
 export default class Canvas {
     #cancelAnimationFrame;
-    #destroyed;
+    #destroyed = false;
     #eventTarget;
-    #frameId;
-    #keysDown;
-    #listeners;
-    #loop;
-    #mouseDown;
-    #mouseX;
-    #mouseY;
+    #frameId = null;
+    #keysDown = new Set();
+    #listeners = [];
+    #loop = true;
+    #mouseDown = new Set();
+    #mouseX = null;
+    #mouseY = null;
     #node;
     #now;
-    #previousTime;
+    #previousTime = null;
     #requestAnimationFrame;
-    #startTime;
+    #startTime = null;
 
     /**
      * Creates a new Canvas with a new canvas element.
@@ -72,18 +72,6 @@ export default class Canvas {
         this.#now = runtime.now ?? (() => globalThis.performance.now());
         this.#requestAnimationFrame = runtime.requestAnimationFrame ??
             this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
-
-        this.#destroyed = false;
-        this.#frameId = null;
-        this.#loop = true;
-        this.#previousTime = null;
-        this.#startTime = null;
-
-        this.#listeners = [];
-        this.#keysDown = new Set();
-        this.#mouseDown = new Set();
-        this.#mouseX = null;
-        this.#mouseY = null;
 
         this.context = new CanvasContext(this.#node, width, height);
 
@@ -315,26 +303,6 @@ export default class Canvas {
      * Attaches events for the Canvas.
      */
     #events() {
-        const updateMouse = (e) => {
-            if (
-                e.target === this.#node &&
-                Number.isFinite(e.offsetX) &&
-                Number.isFinite(e.offsetY)
-            ) {
-                this.#mouseX = e.offsetX;
-                this.#mouseY = e.offsetY;
-
-                return;
-            }
-
-            if (Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
-                const bounds = this.#node.getBoundingClientRect();
-
-                this.#mouseX = e.clientX - bounds.left;
-                this.#mouseY = e.clientY - bounds.top;
-            }
-        };
-
         this.#addEventListener(this.#eventTarget, 'mouseup', (e) => {
             if (!this.#mouseDown.has(e.button)) {
                 return;
@@ -342,7 +310,7 @@ export default class Canvas {
 
             this.#mouseDown.delete(e.button);
 
-            updateMouse(e);
+            this.#updateMouse(e);
 
             this.onMouseUp(e.button, e);
         });
@@ -358,13 +326,13 @@ export default class Canvas {
         });
 
         this.#addEventListener(this.#node, 'mouseenter', (e) => {
-            updateMouse(e);
+            this.#updateMouse(e);
 
             this.onMouseEnter(e);
         });
 
         this.#addEventListener(this.#node, 'mouseleave', (e) => {
-            updateMouse(e);
+            this.#updateMouse(e);
 
             this.onMouseLeave(e);
 
@@ -373,7 +341,7 @@ export default class Canvas {
         });
 
         this.#addEventListener(this.#node, 'mousemove', (e) => {
-            updateMouse(e);
+            this.#updateMouse(e);
 
             this.onMouseMove(this.#mouseX, this.#mouseY, e);
         });
@@ -381,13 +349,13 @@ export default class Canvas {
         this.#addEventListener(this.#node, 'mousedown', (e) => {
             this.#mouseDown.add(e.button);
 
-            updateMouse(e);
+            this.#updateMouse(e);
 
             this.onMouseDown(e.button, e);
         });
 
         this.#addEventListener(this.#node, 'click', (e) => {
-            updateMouse(e);
+            this.#updateMouse(e);
 
             this.onMouseClick(e.button, e);
         });
@@ -401,5 +369,29 @@ export default class Canvas {
                 this.onKeyPress(e.key, e);
             }
         });
+    }
+
+    /**
+     * Updates the canvas-local mouse coordinates from an event.
+     * @param {MouseEvent} event The mouse event.
+     */
+    #updateMouse(event) {
+        if (
+            event.target === this.#node &&
+            Number.isFinite(event.offsetX) &&
+            Number.isFinite(event.offsetY)
+        ) {
+            this.#mouseX = event.offsetX;
+            this.#mouseY = event.offsetY;
+
+            return;
+        }
+
+        if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+            const bounds = this.#node.getBoundingClientRect();
+
+            this.#mouseX = event.clientX - bounds.left;
+            this.#mouseY = event.clientY - bounds.top;
+        }
     }
 }
