@@ -1,22 +1,40 @@
 import process from 'node:process';
 import { test as base, expect } from '@playwright/test';
 import { addCoverageReport } from 'monocart-reporter';
-import { setupCanvas } from '../setup/canvas.js';
+import { setupClock } from '../setup/browser.js';
 
 const collectCoverage = process.env.F5_COVERAGE === 'true';
 
 const test = base.extend({
     expectedBrowserErrors: [[], { option: true }],
+    mockClock: [false, { option: true }],
     canvasPage: [
-        async ({ page, expectedBrowserErrors }, use, testInfo) => {
+        async ({ page, mockClock, expectedBrowserErrors }, use, testInfo) => {
             const errors = [];
+
             page.on('pageerror', (error) => errors.push(error.message));
 
             if (collectCoverage) {
-                await page.coverage.startJSCoverage({ resetOnNavigation: false });
+                await page.coverage.startJSCoverage({
+                    resetOnNavigation: false,
+                });
             }
 
-            await setupCanvas(page);
+            if (mockClock) {
+                await setupClock(page);
+            }
+
+            await page.goto('/', {
+                waitUntil: 'domcontentloaded',
+            });
+
+            await page.evaluate(() => {
+                if (typeof window.F5?.Canvas !== 'function') {
+                    throw new Error('Failed to load F5 on the test page.');
+                }
+
+                document.body.replaceChildren();
+            });
 
             try {
                 await use();
@@ -29,10 +47,7 @@ const test = base.extend({
                 if (collectCoverage) {
                     const coverage = await page.coverage.stopJSCoverage();
 
-                    // Pages such as the demo index may execute no JavaScript.
-                    if (coverage.length) {
-                        await addCoverageReport(coverage, testInfo);
-                    }
+                    await addCoverageReport(coverage, testInfo);
                 }
 
                 expect(errors, 'Uncaught browser errors').toEqual(expectedBrowserErrors);

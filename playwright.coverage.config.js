@@ -30,7 +30,7 @@ export default defineConfig({
                         'html',
                         'lcovonly',
                     ],
-                    entryFilter: (entry) => normalizePath(entry.url).endsWith('/dist/f5.js'),
+                    entryFilter: (entry) => normalizePath(entry.url).endsWith('/assets/f5.js'),
                     sourceFilter: (sourcePath) => normalizePath(sourcePath).startsWith('src/'),
                     sourceMapResolver: (_url, defaultResolver) => defaultResolver(sourceMapUrl),
                     all: './src',

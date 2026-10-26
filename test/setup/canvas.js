@@ -1,14 +1,15 @@
-/** @import { Page } from '@playwright/test'; */
+/**
+ * @import { Page } from '@playwright/test';
+ */
 
 /**
- * Loads the built library with an isolated canvas and parent container.
- * @param {Page} page The browser page.
+ * Creates an isolated canvas and parent container for drawing and input tests.
+ * @param {{page: Page}} fixtures The Playwright fixtures.
  */
-export async function setupCanvas(page) {
-    await page.goto('/', { waitUntil: 'domcontentloaded' });
+export async function setupCanvas({ page }) {
     await page.evaluate(() => {
-        if (typeof window.F5?.Canvas !== 'function') {
-            throw new Error('Failed to load F5 on the test page.');
-        }
+        window.sketch?.destroy();
+        document.body.innerHTML = '<div id="root"></div><canvas id="canvas"></canvas>';
+        window.sketch = null;
     });
 }

@@ -1,96 +1,99 @@
 import { expect, test } from '#test';
+import { setupCanvas } from '../setup/canvas.js';
 
-test.describe('CanvasContext Browser Integration', () => {
-    test('merges constructor options into the active options', async ({ page }) => {
-        const options = await page.evaluate(() => {
-            const { CanvasContext } = window.F5;
-            const canvas = document.getElementById('canvas');
-            const context = new CanvasContext(canvas, 20, 20, {
-                fillStyle: '#f00',
-                lineWidth: 4,
+test.describe('CanvasContext', () => {
+    test.beforeEach(setupCanvas);
+
+    test.describe('constructor', () => {
+        test('merges constructor options into the active options', async ({ page }) => {
+            const options = await page.evaluate(() => {
+                const { CanvasContext } = window.F5;
+                const canvas = document.getElementById('canvas');
+                const context = new CanvasContext(canvas, 20, 20, {
+                    fillStyle: '#f00',
+                    lineWidth: 4,
+                });
+
+                return context.getOptions();
             });
-            const active = context.getOptions();
 
-            return {
-                fillStyle: active.fillStyle,
-                lineWidth: active.lineWidth,
-            };
-        });
-
-        expect(options).toEqual({
-            fillStyle: '#f00',
-            lineWidth: 4,
+            expect(options.fillStyle).toBe('#f00');
+            expect(options.lineWidth).toBe(4);
         });
     });
 
-    test('draws and clears the background', async ({ page }) => {
-        const pixels = await page.evaluate(() => {
-            const { CanvasContext } = window.F5;
-            const canvas = document.getElementById('canvas');
-            const context = new CanvasContext(canvas, 20, 20);
+    test.describe('state', () => {
+        test('restores pushed state and resets to defaults', async ({ page }) => {
+            const state = await page.evaluate(() => {
+                const { CanvasContext } = window.F5;
+                const canvas = document.getElementById('canvas');
+                const context = new CanvasContext(canvas, 20, 20);
 
-            context.background('#ff0000');
+                context.fill('#f00').stroke('#0f0').strokeWidth(2);
+                context.push().fill('#00f').strokeWidth(5).pop();
 
-            const filled = Array.from(context.getImage(10, 10, 1, 1).data);
+                const afterPop = context.getOptions();
 
-            context.clear();
+                context.reset();
 
-            return {
-                cleared: Array.from(context.getImage(10, 10, 1, 1).data),
-                filled,
-            };
+                return {
+                    afterPop,
+                    afterReset: context.getOptions(),
+                    defaults: {
+                        ...CanvasContext.defaults,
+                    },
+                };
+            });
+
+            expect(state.afterPop.fillStyle).toBe('#f00');
+            expect(state.afterPop.strokeStyle).toBe('#0f0');
+            expect(state.afterPop.lineWidth).toBe(2);
+            expect(state.afterReset.fillStyle).toBeNull();
+            expect(state.afterReset.strokeStyle).toBe('#000');
+            expect(state.afterReset.lineWidth).toBe(1);
+            expect(state.defaults.fillStyle).toBeNull();
         });
-
-        expect(pixels.filled).toEqual([255, 0, 0, 255]);
-        expect(pixels.cleared).toEqual([0, 0, 0, 0]);
     });
 
-    test('restores pushed state and resets to defaults', async ({ page }) => {
-        const state = await page.evaluate(() => {
-            const { CanvasContext } = window.F5;
-            const canvas = document.getElementById('canvas');
-            const context = new CanvasContext(canvas, 20, 20);
+    test.describe('drawing', () => {
+        test('draws and clears the background', async ({ page }) => {
+            const pixels = await page.evaluate(() => {
+                const { CanvasContext } = window.F5;
+                const canvas = document.getElementById('canvas');
+                const context = new CanvasContext(canvas, 20, 20);
 
-            context.fill('#f00').stroke('#0f0').strokeWidth(2);
-            context.push().fill('#00f').strokeWidth(5).pop();
+                context.background('#ff0000');
 
-            const afterPop = context.getOptions();
+                const filled = Array.from(context.getImage(10, 10, 1, 1).data);
 
-            context.reset();
+                context.clear();
 
-            return {
-                afterPop,
-                afterReset: context.getOptions(),
-                defaults: {
-                    ...CanvasContext.defaults,
-                },
-            };
+                return {
+                    cleared: Array.from(context.getImage(10, 10, 1, 1).data),
+                    filled,
+                };
+            });
+
+            expect(pixels.filled).toEqual([255, 0, 0, 255]);
+            expect(pixels.cleared).toEqual([0, 0, 0, 0]);
         });
 
-        expect(state.afterPop.fillStyle).toBe('#f00');
-        expect(state.afterPop.strokeStyle).toBe('#0f0');
-        expect(state.afterPop.lineWidth).toBe(2);
-        expect(state.afterReset.fillStyle).toBeNull();
-        expect(state.afterReset.strokeStyle).toBe('#000');
-        expect(state.afterReset.lineWidth).toBe(1);
-        expect(state.defaults.fillStyle).toBeNull();
-    });
+        test('applies scale transforms when drawing primitives', async ({ page }) => {
+            const pixels = await page.evaluate(() => {
+                const { CanvasContext } = window.F5;
+                const canvas = document.getElementById('canvas');
+                const context = new CanvasContext(canvas, 20, 20);
 
-    test('applies scale transforms when drawing primitives', async ({ page }) => {
-        const pixels = await page.evaluate(() => {
-            const { CanvasContext } = window.F5;
-            const canvas = document.getElementById('canvas');
-            const context = new CanvasContext(canvas, 20, 20);
+                context.noStroke().fill('#00ff00').scale(2).rect(1, 1, 2, 2);
 
-            context.noStroke().fill('#00ff00').scale(2).rect(1, 1, 2, 2);
+                return {
+                    inside: Array.from(context.getImage(4, 4, 1, 1).data),
+                    outside: Array.from(context.getImage(8, 8, 1, 1).data),
+                };
+            });
 
-            return {
-                inside: Array.from(context.getImage(4, 4, 1, 1).data),
-                outside: Array.from(context.getImage(8, 8, 1, 1).data),
-            };
+            expect(pixels.inside).toEqual([0, 255, 0, 255]);
+            expect(pixels.outside).toEqual([0, 0, 0, 0]);
         });
-
-        expect(pixels.inside).toEqual([0, 255, 0, 255]);
-        expect(pixels.outside).toEqual([0, 0, 0, 0]);
     });
 });
