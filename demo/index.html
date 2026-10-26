@@ -1,29 +1,136 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-ui-theme="light">
+
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>F5 examples</title>
-    <link rel="stylesheet" href="demo.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demos · F5</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fr0st/ui@4/dist/frost-ui.min.css">
+    <link rel="stylesheet" href="assets/demo.css">
 </head>
+
 <body>
-    <main class="container mt-5">
-        <h1>F5 examples</h1>
-        <p>Drawing, animation, input, paths, and layered shapes using the built F5 library.</p>
-        <p>Click a canvas to focus it for keyboard input. Coordinates use canvas units; angles use radians.</p>
-        <ul>
-            <li><a href="bounding-boxes.html">F5 Bounding Boxes</a></li>
-            <li><a href="canvas-context/canvas.html">F5 CanvasContext</a></li>
-            <li><a href="canvas-context/draw.html">F5 CanvasContext Draw</a></li>
-            <li><a href="canvas-context/gradient.html">F5 CanvasContext Gradient</a></li>
-            <li><a href="canvas-context/path.html">F5 CanvasContext Path</a></li>
-            <li><a href="canvas-context/primitive.html">F5 CanvasContext Primitive</a></li>
-            <li><a href="contains-point.html">F5 Shape Contains Point</a></li>
-            <li><a href="input.html">F5 Input</a></li>
-            <li><a href="path/path.html">F5 Path</a></li>
-            <li><a href="path/primitive.html">F5 Path Primitive</a></li>
-            <li><a href="shape.html">F5 Shape</a></li>
-        </ul>
+    <aside class="demo-sidebar bg-body border-end">
+        <a class="d-flex align-items-center gap-2 fw-bold fs-4 text-decoration-none mb-4" href="index.html">
+            <span class="badge bg-primary bg-gradient" aria-hidden="true">F</span>
+            <span>F5</span>
+        </a>
+        <nav class="nav nav-pills flex-wrap flex-lg-column gap-1" aria-label="Canvas examples">
+            <a class="nav-link active" href="index.html" aria-current="page">Overview</a>
+            <a class="nav-link" href="primitives.html">Drawing primitives</a>
+            <a class="nav-link" href="styles.html">Styles and text</a>
+            <a class="nav-link" href="gradients.html">Gradients</a>
+            <a class="nav-link" href="canvas.html">Canvas state</a>
+            <a class="nav-link" href="drawing-paths.html">Connected paths</a>
+            <a class="nav-link" href="path-primitives.html">Reusable primitives</a>
+            <a class="nav-link" href="paths.html">Reusable paths</a>
+            <a class="nav-link" href="shape.html">Layered shapes</a>
+            <a class="nav-link" href="contains-point.html">Hit testing</a>
+            <a class="nav-link" href="bounding-boxes.html">Bounding boxes</a>
+            <a class="nav-link" href="input.html">Keyboard and mouse</a>
+        </nav>
+        <p class="small text-body-secondary mt-4 mb-0">Canvas drawing and animation.<br><a href="../README.md">API reference</a></p>
+    </aside>
+    <main class="demo-main container-fluid py-4 py-lg-5">
+        <section class="card border-0 bg-ambient shadow-sm mb-5">
+            <div class="card-body p-4 p-md-5">
+                <span class="badge bg-primary-subtle text-primary-subtle mb-3">Canvas drawing and animation</span>
+                <h1 class="display-3 mb-3">F5</h1>
+                <p class="lead text-body-secondary mb-4">Draw geometry, compose layered shapes, and explore pointer and keyboard input on the canvas.</p>
+                <a class="btn btn-primary" href="primitives.html">Explore the demos</a>
+            </div>
+        </section>
+
+        <section class="mb-5" aria-labelledby="examples-heading">
+            <header class="border-bottom pb-3 mb-4">
+                <h2 class="h3 mb-1" id="examples-heading">Choose an example</h2>
+                <p class="text-body-secondary mb-0">Start with drawing basics, build reusable paths, then explore animated shapes and input.</p>
+            </header>
+            <div class="row g-4">
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Drawing primitives</h3>
+                        <p class="text-body-secondary">Draw circles, rectangles, lines, and curves with chainable canvas methods.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="primitives.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Styles and text</h3>
+                        <p class="text-body-secondary">Compare fills, strokes, shadows, and text settings on the same canvas.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="styles.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Gradients</h3>
+                        <p class="text-body-secondary">Compare linear and radial gradients using the same blue, slate, and rose color stops.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="gradients.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Canvas state</h3>
+                        <p class="text-body-secondary">Clear pixels, save drawing state, and transform the coordinate system.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="canvas.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Connected paths</h3>
+                        <p class="text-body-secondary">Build a path directly on the drawing context using vertices and curve segments.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="drawing-paths.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Reusable primitives</h3>
+                        <p class="text-body-secondary">Create retained geometry, then render it with the current fill and stroke styles.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="path-primitives.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Reusable paths</h3>
+                        <p class="text-body-secondary">Combine vertices and curves in a Path that can be rendered and inspected independently.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="paths.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Layered shapes</h3>
+                        <p class="text-body-secondary">Compare layer order, position, rotation, and drawing offsets.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="shape.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Hit testing</h3>
+                        <p class="text-body-secondary">Move the pointer over the shape. The fill turns rose inside a layer, while contour holes remain outside.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="contains-point.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Bounding boxes</h3>
+                        <p class="text-body-secondary">Compare the amber bounds of individual paths with the green bounds of the complete rotated shape.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="bounding-boxes.html">Open example</a>
+                    </article>
+                </div>
+                <div class="col-md-6 col-xl-4">
+                    <article class="card card-body h-100 p-4">
+                        <h3 class="h4">Keyboard and mouse</h3>
+                        <p class="text-body-secondary">Click or focus the canvas, then move the pointer, press a mouse button, or type a key.</p>
+                        <a class="btn btn-outline-primary mt-auto" href="input.html">Open example</a>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <footer class="border-top pt-4 text-body-secondary">
+            Source and API: <a href="../README.md">README</a> · <a href="https://github.com/elusivecodes/F5">GitHub</a>
+        </footer>
     </main>
 </body>
+
 </html>

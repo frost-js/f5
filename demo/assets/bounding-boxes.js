@@ -1,5 +1,8 @@
 class ContourSketch extends F5.Canvas {
     setup() {
+        this.paused = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.elapsedTime = 0;
+
         this.paths = [];
         this.shape = this.context.createShape(0, 0, 0, 300, 200)
             .layer((path) => {
@@ -27,29 +30,34 @@ class ContourSketch extends F5.Canvas {
         this.rotation = Math.random() / 2 + 0.5;
     }
 
-    update(deltaTime, elapsedTime) {
-        this.shape.x += this.force.x;
-        this.shape.y += this.force.y;
+    update(deltaTime) {
+        if (!this.paused) {
+            const step = Math.min(deltaTime, 1 / 15);
 
-        if (this.shape.x <= -150 || this.shape.x >= 150) {
-            this.force.x *= -1;
+            this.elapsedTime += step;
+            this.shape.x += this.force.x * step * 60;
+            this.shape.y += this.force.y * step * 60;
+
+            if (this.shape.x <= -150 || this.shape.x >= 150) {
+                this.force.x *= -1;
+            }
+
+            if (this.shape.y <= -50 || this.shape.y >= 50) {
+                this.force.y *= -1;
+            }
         }
 
-        if (this.shape.y <= -50 || this.shape.y >= 50) {
-            this.force.y *= -1;
-        }
-
-        this.shape.angle = elapsedTime * this.rotation;
+        this.shape.angle = this.elapsedTime * this.rotation;
 
         const mousePos = this.mousePos();
 
-        let color = 'blue';
+        let color = '#2563eb';
         if (mousePos && this.shape.containsPoint(mousePos.x, mousePos.y)) {
-            color = 'red';
+            color = '#e11d48';
         }
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .noStroke()
             .fill(color)
             .drawShape(this.shape)
@@ -59,7 +67,7 @@ class ContourSketch extends F5.Canvas {
             .rotate(this.shape.angle)
             .translate(-this.shape.anchorX, -this.shape.anchorY)
             .noFill()
-            .stroke('yellow');
+            .stroke('#d97706');
 
         for (const path of this.paths) {
             const { x, y, width, height } = path.getBoundingBox();
@@ -72,11 +80,34 @@ class ContourSketch extends F5.Canvas {
         this.context
             .pop()
             .noFill()
-            .stroke('green')
+            .stroke('#059669')
             .rect(x, y, width, height);
     }
 }
 
-const contour = document.getElementById('contour');
+const container = document.getElementById('contour');
+const pauseButton = document.getElementById('pause-animation');
+const status = document.getElementById('animation-status');
+let sketch = ContourSketch.attach(container);
 
-ContourSketch.attach(contour);
+function updateControls() {
+    pauseButton.textContent = sketch.paused ? 'Resume animation' : 'Pause animation';
+    pauseButton.setAttribute('aria-pressed', String(sketch.paused));
+    status.textContent = sketch.paused ?
+        'Animation paused. Move the pointer to inspect the shape.' :
+        'Animation running. Move the pointer over the filled layers.';
+}
+
+pauseButton.addEventListener('click', () => {
+    sketch.paused = !sketch.paused;
+    updateControls();
+});
+
+document.getElementById('reset-animation').addEventListener('click', () => {
+    sketch.destroy();
+    container.replaceChildren();
+    sketch = ContourSketch.attach(container);
+    updateControls();
+});
+
+updateControls();

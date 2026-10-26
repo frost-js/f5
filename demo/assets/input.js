@@ -1,12 +1,12 @@
 class InputSketch extends F5.Canvas {
     _write(text) {
-        console.log(text);
+        document.getElementById('input-status').textContent = text;
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .fill('#000')
             .noStroke()
-            .fontSize('24')
+            .fontSize(24)
             .textAlign('center')
             .text(text, 300, 200);
     }
@@ -50,8 +50,7 @@ class InputSketch extends F5.Canvas {
     setup() {
         this.noLoop();
 
-        this.context
-            .background('#aaa');
+        this._write('Click here, then press a key');
     }
 }
 

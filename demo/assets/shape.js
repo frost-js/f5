@@ -20,9 +20,9 @@ class ShapeLayersSketch extends F5.Canvas {
             });
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .drawShape(shape);
     }
 }
@@ -49,9 +49,9 @@ class ShapeOffsetSketch extends F5.Canvas {
             });
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .drawShape(shape);
     }
 }
@@ -78,9 +78,9 @@ class ShapeRotationSketch extends F5.Canvas {
             });
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .drawShape(shape);
     }
 }
@@ -107,9 +107,9 @@ class ShapePositionSketch extends F5.Canvas {
             });
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .drawShape(shape, 100, 100);
     }
 }

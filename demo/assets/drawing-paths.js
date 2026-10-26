@@ -3,7 +3,7 @@ class BezierSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .stroke('#111')
             .strokeWidth(2)
             .begin()
@@ -11,10 +11,10 @@ class BezierSketch extends F5.Canvas {
             .bezierVertex(400, 30, 150, 250, 450, 300)
             .end()
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .circle(50, 20, 10)
             .circle(450, 300, 10)
-            .fill('red')
+            .fill('#e11d48')
             .circle(400, 30, 10)
             .circle(150, 250, 10);
     }
@@ -25,7 +25,7 @@ class CurveSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .stroke('#111')
             .strokeWidth(2)
             .begin()
@@ -33,9 +33,9 @@ class CurveSketch extends F5.Canvas {
             .curveVertex(400, 200, 250, 50, 40)
             .end()
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .circle(400, 20, 10)
-            .fill('red')
+            .fill('#e11d48')
             .circle(400, 200, 10)
             .circle(250, 50, 10);
     }
@@ -46,7 +46,7 @@ class QuadraticSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .stroke('#111')
             .strokeWidth(2)
             .begin()
@@ -54,10 +54,10 @@ class QuadraticSketch extends F5.Canvas {
             .quadraticVertex(300, 350, 50, 50)
             .end()
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .circle(450, 50, 10)
             .circle(50, 50, 10)
-            .fill('red')
+            .fill('#e11d48')
             .circle(300, 350, 10);
     }
 }
@@ -67,8 +67,8 @@ class VertexSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .fill('blue')
+            .background('#f1f5f9')
+            .fill('#2563eb')
             .begin()
             .vertex(150, 300)
             .vertex(50, 150)

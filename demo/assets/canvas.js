@@ -3,11 +3,11 @@ class ApplyMatrixSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .stroke('red')
+            .background('#f1f5f9')
+            .stroke('#e11d48')
             .rect(100, 100, 100, 100)
             .applyMatrix(1, .2, .8, 1, 0, 0)
-            .stroke('blue')
+            .stroke('#2563eb')
             .rect(100, 100, 100, 100);
     }
 }
@@ -17,7 +17,7 @@ class BackgroundSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('red');
+            .background('#e11d48');
     }
 }
 
@@ -26,7 +26,7 @@ class ClearSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .clear();
     }
 }
@@ -36,7 +36,7 @@ class EraseSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .erase((path) => path.rect(100, 100, 100, 200));
     }
 }
@@ -46,14 +46,14 @@ class PopSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .fill('red')
+            .background('#f1f5f9')
+            .fill('#e11d48')
             .noStroke()
             .push()
-            .stroke('black')
-            .fill('blue')
+            .stroke('#0f172a')
+            .fill('#2563eb')
             .translate(200, 150)
-            .rotate(45)
+            .rotate(Math.PI / 4)
             .scale(2, 3)
             .pop()
             .rect(100, 100, 200, 100);
@@ -65,14 +65,14 @@ class PushSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .fill('red')
+            .background('#f1f5f9')
+            .fill('#e11d48')
             .push()
             .noStroke()
-            .fill('blue')
+            .fill('#2563eb')
             .strokeWidth(2)
             .translate(200, 150)
-            .rotate(45)
+            .rotate(Math.PI / 4)
             .scale(2, 3)
             .rect(-100, -100, 200, 100);
     }
@@ -83,15 +83,15 @@ class ResetSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .fill('red')
-            .stroke('blue')
+            .background('#f1f5f9')
+            .fill('#e11d48')
+            .stroke('#2563eb')
             .strokeWidth(5)
             .shadowBlur(10)
             .shadow('#000')
             .shadowOffset(10, 10)
             .translate(-100, -50)
-            .rotate(45)
+            .rotate(Math.PI / 4)
             .scale(2, 3)
             .reset()
             .rect(100, 100, 200, 100);
@@ -103,7 +103,7 @@ class ResetMatrixSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .applyMatrix(1, .2, .8, 1, 0, 0)
             .resetMatrix()
             .rect(100, 100, 100, 100);
@@ -116,7 +116,7 @@ class ResizeSketch extends F5.Canvas {
 
         this.context
             .resize(100, 100)
-            .background('#aaa');
+            .background('#f1f5f9');
     }
 }
 
@@ -125,17 +125,17 @@ class RotateSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
+            .background('#f1f5f9')
             .translate(300, 200)
             .push()
-            .stroke('red')
+            .stroke('#e11d48')
             .translate(-100, -50)
             .rect(0, 0, 200, 100)
             .pop()
             .push()
             .translate(-100, -50)
-            .rotate(45)
-            .stroke('blue')
+            .rotate(Math.PI / 4)
+            .stroke('#2563eb')
             .rect(0, 0, 200, 100)
             .pop();
     }
@@ -146,11 +146,11 @@ class ScaleSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .stroke('red')
+            .background('#f1f5f9')
+            .stroke('#e11d48')
             .rect(100, 50, 100, 50)
             .scale(2, 3)
-            .stroke('blue')
+            .stroke('#2563eb')
             .rect(100, 50, 100, 50);
     }
 }
@@ -160,11 +160,11 @@ class TranslateSketch extends F5.Canvas {
         this.noLoop();
 
         this.context
-            .background('#aaa')
-            .stroke('red')
+            .background('#f1f5f9')
+            .stroke('#e11d48')
             .rect(100, 100, 200, 100)
             .translate(100, 50)
-            .stroke('blue')
+            .stroke('#2563eb')
             .rect(100, 100, 200, 100);
     }
 }
