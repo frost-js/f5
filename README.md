@@ -309,7 +309,7 @@ To view the demo, open `demo/index.html` in your browser after building.
 
 ## Migration
 
-Use `dispose()` for canvas cleanup, matching the sibling libraries. `destroy()` remains available as a deprecated alias.
+Replace calls to the removed `destroy()` method with `dispose()` for canvas cleanup, matching the sibling libraries.
 
 The package root resolves to built ESM instead of `src/index.js`. The UMD global `F5`, UMD filenames, and five named exports are retained.
 

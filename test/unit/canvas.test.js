@@ -254,16 +254,6 @@ test.describe('Canvas', () => {
     });
 
     test.describe('#dispose', () => {
-        test('keeps destroy as a compatible cleanup alias', ({ animationWindow, canvasNode }) => {
-            const node = canvasNode();
-            const sketch = new Canvas(node, 600, 400, { runtime: animationWindow });
-
-            expect(sketch.destroy()).toBe(sketch);
-            expect(node.listenerCount()).toBe(0);
-            expect(animationWindow.listenerCount()).toBe(0);
-            expect(sketch.dispose()).toBe(sketch);
-        });
-
         test('removes listeners and clears input state', ({ animationWindow, canvasNode }) => {
             const node = canvasNode();
 

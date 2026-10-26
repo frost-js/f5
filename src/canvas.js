@@ -129,15 +129,6 @@ export default class Canvas {
     }
 
     /**
-     * Disposes the Canvas.
-     * @deprecated Use dispose() instead.
-     * @returns {Canvas} The Canvas.
-     */
-    destroy() {
-        return this.dispose();
-    }
-
-    /**
      * Stops the loop, removes event listeners, and clears input state.
      * @returns {Canvas} The Canvas.
      */
