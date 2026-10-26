@@ -11,16 +11,15 @@ Lightweight 2D canvas drawing and animation with paths, layered shapes, hit test
 
 ## Highlights
 
-- Prebuilt ESM and UMD bundles in `dist/`
-- Browser UMD bundle exposed as `globalThis.F5`
 - Chainable drawing, styling, and transforms
 - Animation lifecycle with keyboard and mouse input
 - Reusable paths, layered shapes, contours, and hit testing
 - Mutable 2D vectors
-- No runtime dependencies
+- Prebuilt ESM and UMD bundles with source maps
+- No runtime dependencies or required stylesheets
 - JSDoc-powered IntelliSense
 
-Explore [image annotation](demo/annotation.html), an interactive [seating plan](demo/seating.html), and an animated [delivery map](demo/delivery.html). The [drawing reference](demo/reference.html) collects focused recipes for primitives, styles, paths, and transforms.
+Explore [the demo](./demo/index.html) for interactive examples.
 
 ## Installation
 
@@ -30,23 +29,21 @@ Explore [image annotation](demo/annotation.html), an interactive [seating plan](
 npm i @fr0st/f5
 ```
 
-F5's package entry point is ESM-only. Import the named exports in browser projects and bundlers. Drawing requires a browser DOM with a 2D canvas context and `Path2D`; `Vector` can also be used without a DOM.
+F5's package entry point is ESM-only. Drawing requires a browser DOM with Canvas 2D support and `Path2D`. Import the named exports in browser projects and bundlers:
 
 ```js
 import { Canvas, CanvasContext, Path, Shape, Vector } from '@fr0st/f5';
 ```
 
+`Vector` can also be used without a DOM. F5 has no runtime dependencies and does not require a stylesheet.
+
 ### Browser (ESM)
 
-Import the minified ESM bundle directly from your own copy:
+Import the minified ESM bundle directly from a CDN:
 
 ```html
-<canvas id="canvas"></canvas>
 <script type="module">
-    import { CanvasContext } from '/path/to/dist/f5.esm.min.js';
-
-    const context = new CanvasContext(document.getElementById('canvas'), 600, 400);
-    context.noStroke().fill('#2673dd').circle(300, 200, 60);
+    import { Canvas, CanvasContext, Path, Shape, Vector } from 'https://cdn.jsdelivr.net/npm/@fr0st/f5@latest/dist/f5.esm.min.js';
 </script>
 ```
 
@@ -55,17 +52,15 @@ Import the minified ESM bundle directly from your own copy:
 Load the bundle from your own copy or a CDN:
 
 ```html
-<canvas id="canvas"></canvas>
 <script src="/path/to/dist/f5.min.js"></script>
 <!-- or -->
 <script src="https://cdn.jsdelivr.net/npm/@fr0st/f5@latest/dist/f5.min.js"></script>
 <script>
-    const context = new F5.CanvasContext(document.getElementById('canvas'), 600, 400);
-    context.noStroke().fill('#2673dd').circle(300, 200, 60);
+    const { Canvas, CanvasContext, Path, Shape, Vector } = globalThis.F5;
 </script>
 ```
 
-The UMD bundle exposes `globalThis.F5` with `Canvas`, `CanvasContext`, `Path`, `Shape`, and `Vector`. The ESM bundle exports the same five classes as named exports; there is no default export.
+The UMD bundle exposes `globalThis.F5`.
 
 The package root resolves to the prebuilt ESM bundle. Published files under `dist/` and `src/` are also available through matching package subpaths.
 
@@ -115,119 +110,131 @@ class Sketch extends Canvas {
 }
 
 const sketch = Sketch.attach(document.body, 600, 400);
-// Call sketch.dispose() when the sketch is removed or its owner is disposed.
 ```
 
-For an existing canvas, construct the sketch and then start it:
-
-```js
-const sketch = new Sketch(document.getElementById('canvas'), 600, 400);
-sketch.start();
-```
-
-`attach()` starts the sketch automatically after construction finishes.
-
-## API
-
-### Canvas
-
-Subclass `Canvas` to implement `setup()` and `update(deltaTime, elapsedTime)`. The `context` property is a `CanvasContext`.
-
-| Signature | Description |
-| --- | --- |
-| `new Canvas(node, width = 600, height = 400, options = {})` | Wrap an existing canvas without starting input or lifecycle hooks |
-| `Canvas.attach(parent = document.body, width = 600, height = 400, options = {})` | Create and append a canvas, construct the sketch, and call `start()` |
-| `start()` | Start input, call `setup()`, and begin updates once; return the instance |
-| `setup()` | Initialization hook called once by `start()` |
-| `update(deltaTime, elapsedTime)` | Animation hook receiving time in seconds |
-| `noLoop()` | Stop future updates |
-| `dispose()` | Stop updates, remove listeners, and clear input state; returns nothing |
-| `isKeyPressed(code)` | Check a physical key, or any key when omitted |
-| `isMousePressed(button = 0)` | Check a button while the pointer is inside the canvas |
-| `mousePos()` | Return the pointer position as a `Vector`, or `null` outside the canvas |
-
-Input hooks receive the native event as their last argument:
-
-| Hook | Arguments before the event |
-| --- | --- |
-| `onKeyDown`, `onKeyUp` | Physical key code, such as `KeyA` |
-| `onKeyPress` | Typed key value, such as `a` |
-| `onMouseClick`, `onMouseDown`, `onMouseUp` | Button index |
-| `onMouseMove` | Canvas-local `x`, `y` |
-| `onMouseEnter`, `onMouseLeave` | None |
-
-Click or tab to the canvas to focus it for keyboard input. Existing `tabindex` and focus styles are preserved. Mouse positions use canvas drawing units, including when CSS scales the canvas.
-
-The optional fourth constructor argument, or fourth argument to `Canvas.attach`, accepts `{ runtime }`. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling/cancellation functions together. This supports deterministic tests and custom browser embedding; defaults use the canvas element’s owning window for timing and events. Custom event targets must support the `addEventListener` `signal` option so disposal removes their listeners.
+## Options
 
 ### CanvasContext
 
-```js
-new CanvasContext(node, width = 600, height = 400, options = {});
-```
+Drawing options are resolved in this order:
 
-Wrap a canvas element with chainable drawing and style methods. Set `CanvasContext.defaults` properties before construction to customize application-wide defaults. Each context copies the defaults and applies its own options; `reset()` restores the current shared defaults. Constructor options use these defaults:
+1. `CanvasContext.defaults`
+2. Options passed to the constructor
 
-| Option | Default | Description |
+Each context copies the defaults and applies its own options. `getOptions()` returns a copy of the active options, and `reset()` restores the current shared defaults.
+
+`CanvasContext.defaults` may be customized before creating instances. See [src/canvas-context.js](./src/canvas-context.js) for the complete defaults.
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `fillStyle` | `string \| CanvasGradient \| CanvasPattern \| null` | `null` | Fill color, gradient, or pattern; `null` disables fill. |
+| `strokeStyle` | `string \| CanvasGradient \| CanvasPattern \| null` | `'#000'` | Stroke color, gradient, or pattern; `null` disables stroke. |
+| `lineWidth` | `number` | `1` | Stroke width in canvas units. |
+| `font` | `string` | `'sans-serif'` | Font family. |
+| `fontSize` | `number` | `10` | Font size in canvas units. |
+| `fontWeight` | `string \| number \| null` | `null` | Optional font weight. |
+| `textAlign` | `CanvasTextAlign` | `'start'` | Horizontal text alignment. |
+| `textBaseline` | `CanvasTextBaseline` | `'alphabetic'` | Vertical text alignment. |
+| `shadowColor` | `string \| null` | `null` | Shadow color. |
+| `shadowBlur` | `number` | `0` | Shadow blur amount. |
+| `shadowOffsetX`, `shadowOffsetY` | `number` | `0` | Shadow offsets. |
+
+### Canvas
+
+The fourth argument to the constructor or `Canvas.attach()` accepts lifecycle options:
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `runtime` | `object` | `{}` | Optional timing, animation scheduling, and global input overrides. |
+
+By default, timing and events use the canvas element's owning window. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling and cancellation functions together. Custom event targets must support the `addEventListener` `signal` option. See [src/canvas.js](./src/canvas.js) for the runtime contract.
+
+## Methods
+
+### Canvas
+
+An instance exposes its drawing context as `instance.context`, a `CanvasContext`. Override `setup()` and `update(deltaTime, elapsedTime)` to implement a sketch.
+
+| Method | Returns | Description |
 | --- | --- | --- |
-| `fillStyle` | `null` | Fill color, gradient, or pattern; `null` disables fill |
-| `strokeStyle` | `'#000'` | Stroke color, gradient, or pattern; `null` disables stroke |
-| `lineWidth` | `1` | Stroke width |
-| `font` | `'sans-serif'` | Font family |
-| `fontSize` | `10` | Font size in pixels |
-| `fontWeight` | `null` | Optional font weight |
-| `textAlign` | `'start'` | Horizontal text alignment |
-| `textBaseline` | `'alphabetic'` | Vertical text alignment |
-| `shadowColor` | `null` | Shadow color |
-| `shadowBlur` | `0` | Shadow blur amount |
-| `shadowOffsetX`, `shadowOffsetY` | `0` | Shadow offsets |
+| `new Canvas(node, width = 600, height = 400, options = {})` | `Canvas` | Wrap an existing canvas without starting input or lifecycle hooks. |
+| `Canvas.attach(parent = document.body, width = 600, height = 400, options = {})` | `Canvas` | Create and append a canvas, construct the sketch, and call `start()`. |
+| `start()` | `Canvas` | Start input, call `setup()`, and begin updates once. |
+| `setup()` | `void` | Initialization hook called once by `start()`. |
+| `update(deltaTime, elapsedTime)` | `void` | Animation hook receiving time in seconds. |
+| `noLoop()` | `void` | Stop future updates. |
+| `dispose()` | `void` | Stop updates, remove listeners, and clear input state. |
+| `isKeyPressed(code)` | `boolean` | Check a physical key, or any key when omitted. |
+| `isMousePressed(button = 0)` | `boolean` | Check whether a mouse button is tracked as pressed with available pointer coordinates. |
+| `mousePos()` | `Vector \| null` | Return the last tracked pointer position, or `null` when no position is available. |
+
+Input hooks return `void` and receive the native browser event as their last argument:
+
+| Method | Returns | Description |
+| --- | --- | --- |
+| `onKeyDown(code, event)`, `onKeyUp(code, event)` | `void` | Receive a physical key code, such as `KeyA`. |
+| `onKeyPress(key, event)` | `void` | Receive a single typed character, excluding repeated keydown events. |
+| `onMouseClick(button, event)`, `onMouseDown(button, event)`, `onMouseUp(button, event)` | `void` | Receive a mouse button index. |
+| `onMouseMove(x, y, event)` | `void` | Receive canvas-local coordinates. |
+| `onMouseEnter(event)`, `onMouseLeave(event)` | `void` | Receive pointer entry and exit events. |
+
+Mouse positions use canvas drawing units, including when CSS scales the canvas. Leaving the canvas clears the tracked position. Releasing a tracked mouse button outside the canvas updates it to the release coordinates, which can lie outside the canvas bounds. `dispose()` clears the position too.
+
+### CanvasContext
+
+Wrap a canvas element with chainable drawing and style methods. Drawing coordinates are canvas units and angles are radians. `circle()` takes a radius; `ellipse()` takes width and height.
+
+Canvas dimensions set the pixel buffer size. For responsive or high-DPI output, size the buffer for the displayed dimensions and pixel density, then scale the drawing coordinates. The [drawing reference](./demo/assets/reference.js) demonstrates this setup.
 
 Drawing methods:
 
-| Signature | Description |
-| --- | --- |
-| `arc(x, y, radius, startAngle, endAngle)` | Circular arc |
-| `bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2)` | Cubic Bézier curve |
-| `circle(x, y, radius)` | Circle centered at `(x, y)` |
-| `curve(x1, y1, cx1, cy1, cx2, cy2, radius)` | Tangent arc from a starting point |
-| `ellipse(x, y, width, height, angle = 0)` | Ellipse centered at `(x, y)` |
-| `line(x1, y1, x2, y2)` | Line segment |
-| `point(x, y)` | Dot using the stroke color and width |
-| `quad(x1, y1, x2, y2, x3, y3, x4, y4)` | Quadrilateral |
-| `rect(x, y, width, height)` | Rectangle |
-| `square(x, y, size)` | Square |
-| `triangle(x1, y1, x2, y2, x3, y3)` | Triangle |
-| `begin()`, `end(close = false)` | Begin a connected path and draw it, optionally closing it |
-| `vertex(x, y)` | Move to the first vertex, then connect subsequent vertices |
-| `bezierVertex(cx1, cy1, cx2, cy2, x, y)` | Append a cubic Bézier segment |
-| `quadraticVertex(cx, cy, x, y)` | Append a quadratic Bézier segment |
-| `curveVertex(cx1, cy1, cx2, cy2, radius)` | Append a tangent arc |
+| Method | Returns | Description |
+| --- | --- | --- |
+| `new CanvasContext(node, width = 600, height = 400, options = {})` | `CanvasContext` | Create a drawing context. |
+| `arc(x, y, radius, startAngle, endAngle)` | `CanvasContext` | Circular arc. |
+| `bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2)` | `CanvasContext` | Cubic Bézier curve. |
+| `circle(x, y, radius)` | `CanvasContext` | Circle centered at `(x, y)`. |
+| `curve(x1, y1, cx1, cy1, cx2, cy2, radius)` | `CanvasContext` | Tangent arc from a starting point. |
+| `ellipse(x, y, width, height, angle = 0)` | `CanvasContext` | Ellipse centered at `(x, y)`. |
+| `line(x1, y1, x2, y2)` | `CanvasContext` | Line segment. |
+| `point(x, y)` | `CanvasContext` | Dot using the stroke color and width. |
+| `quad(x1, y1, x2, y2, x3, y3, x4, y4)` | `CanvasContext` | Quadrilateral. |
+| `rect(x, y, width, height)` | `CanvasContext` | Rectangle. |
+| `square(x, y, size)` | `CanvasContext` | Square. |
+| `triangle(x1, y1, x2, y2, x3, y3)` | `CanvasContext` | Triangle. |
+| `begin()`, `end(close = false)` | `CanvasContext` | Begin a connected path and draw it, optionally closing it. |
+| `vertex(x, y)` | `CanvasContext` | Move to the first vertex, then connect subsequent vertices. |
+| `bezierVertex(cx1, cy1, cx2, cy2, x, y)` | `CanvasContext` | Append a cubic Bézier segment. |
+| `quadraticVertex(cx, cy, x, y)` | `CanvasContext` | Append a quadratic Bézier segment. |
+| `curveVertex(cx1, cy1, cx2, cy2, radius)` | `CanvasContext` | Append a tangent arc. |
 
 Styles, transforms, and utilities:
 
-| Signatures | Description |
-| --- | --- |
-| `fill(color)`, `noFill()` | Set or disable fill |
-| `stroke(color)`, `noStroke()`, `strokeWidth(width)` | Configure stroke |
-| `shadow(color)`, `noShadow()`, `shadowBlur(amount)`, `shadowOffset(x = 0, y = 0)` | Configure shadows |
-| `font(font)`, `fontSize(size)`, `fontWeight(weight)` | Configure font |
-| `textAlign(alignment)`, `textBaseline(baseline)`, `text(text, x, y)` | Position and draw text |
-| `translate(x, y)`, `rotate(angle)`, `scale(x, y = x)` | Transform subsequent drawing |
-| `applyMatrix(a, b, c, d, e, f)`, `resetMatrix()` | Apply or reset a transform |
-| `push()`, `pop()` | Save or restore transform and style state |
-| `reset()` | Restore default drawing options and reset the transform |
-| `resize(width, height)` | Resize the canvas, clearing pixels and saved state |
-| `getOptions()` | Return a copy of the active drawing options |
-| `background(color)`, `clear()` | Fill or clear the whole canvas |
-| `erase(callback)` | Erase geometry drawn by a callback receiving a new `Path` |
-| `drawImage(image, x = 0, y = 0)` | Draw an image |
-| `getImage(sx, sy, sw, sh)` | Read an `ImageData` region |
-| `putImage(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight)` | Write `ImageData`; omit the last four arguments to write the whole image |
-| `linearGradient(x1, y1, x2, y2)` | Create a linear `CanvasGradient` |
-| `radialGradient(x1, y1, r1, x2, y2, r2)` | Create a radial `CanvasGradient` |
-| `createPath()` | Create a retained `Path` |
-| `createShape(x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0)` | Create a layered `Shape` |
-| `drawPath(path, x = 0, y = 0)`, `drawShape(shape, x = 0, y = 0)` | Render geometry with the current styles and an optional drawing offset |
+| Method | Returns | Description |
+| --- | --- | --- |
+| `fill(color)`, `noFill()` | `CanvasContext` | Set or disable fill. |
+| `stroke(color)`, `noStroke()`, `strokeWidth(width)` | `CanvasContext` | Configure stroke. |
+| `shadow(color)`, `noShadow()`, `shadowBlur(amount)`, `shadowOffset(x = 0, y = 0)` | `CanvasContext` | Configure shadows. |
+| `font(font)`, `fontSize(size)`, `fontWeight(weight)` | `CanvasContext` | Configure font. |
+| `textAlign(alignment)`, `textBaseline(baseline)`, `text(text, x, y)` | `CanvasContext` | Position and draw text. |
+| `translate(x, y)`, `rotate(angle)`, `scale(x, y = x)` | `CanvasContext` | Transform subsequent drawing. |
+| `applyMatrix(a, b, c, d, e, f)`, `resetMatrix()` | `CanvasContext` | Apply or reset a transform. |
+| `push()`, `pop()` | `CanvasContext` | Save or restore transform and style state. |
+| `reset()` | `CanvasContext` | Restore default drawing options and reset the transform. |
+| `resize(width, height)` | `CanvasContext` | Resize the canvas, clearing pixels and saved state. |
+| `getOptions()` | `object` | Return a copy of the active drawing options. |
+| `background(color)`, `clear()` | `CanvasContext` | Fill or clear the whole canvas. |
+| `erase(callback)` | `CanvasContext` | Erase geometry drawn by a callback receiving a new `Path`. |
+| `drawImage(image, x = 0, y = 0)` | `CanvasContext` | Draw an image. |
+| `getImage(sx, sy, sw, sh)` | `ImageData` | Read an `ImageData` region. |
+| `putImage(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight)` | `CanvasContext` | Write `ImageData`; omit the last four arguments to write the whole image. |
+| `linearGradient(x1, y1, x2, y2)` | `CanvasGradient` | Create a linear `CanvasGradient`. |
+| `radialGradient(x1, y1, r1, x2, y2, r2)` | `CanvasGradient` | Create a radial `CanvasGradient`. |
+| `createPath()` | `Path` | Create a retained `Path`. |
+| `createShape(x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0)` | `Shape` | Create a layered `Shape`. |
+| `drawPath(path, x = 0, y = 0)`, `drawShape(shape, x = 0, y = 0)` | `CanvasContext` | Render geometry with the current styles and an optional drawing offset. |
+
+`push()` and `pop()` save and restore transforms and styles. `resize()` clears pixels and saved state; `reset()` restores drawing defaults and the transform without clearing pixels.
 
 ### Path and Shape
 
@@ -245,20 +252,22 @@ const shape = context.createShape(150, 100)
 context.drawShape(shape);
 ```
 
-| Signature | Description |
-| --- | --- |
-| `new Path(context)` | Create a path using a native 2D context for hit testing |
-| `new Shape(context, x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0)` | Create a shape using a native 2D context |
-| `path.close()` | Close the current subpath |
-| `shape.layer(callback, contour = false)` | Add a layer; the callback receives a new `Path` |
-| `shape.contour(callback)` | Add an erasing contour; the callback receives a new `Path` |
-| `containsPoint(x, y)` | Test a point against the path or shape |
-| `getBoundingBox()` | Return `{ top, right, bottom, left, x, y, width, height }` |
-| `render(options = {}, pixelRatio = 1)` | Render the path or shape into a separate canvas at the requested pixel density |
+| Method | Returns | Description |
+| --- | --- | --- |
+| `new Path(context)` | `Path` | Create a path using a native 2D context for hit testing. |
+| `new Shape(context, x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0)` | `Shape` | Create a shape using a native 2D context. |
+| `path.close()` | `Path` | Close the current subpath. |
+| `shape.layer(callback, contour = false)` | `Shape` | Add a layer; the callback receives a new `Path`. |
+| `shape.contour(callback)` | `Shape` | Add an erasing contour; the callback receives a new `Path`. |
+| `containsPoint(x, y)` | `boolean` | Test a point against the path or shape. |
+| `getBoundingBox()` | `object` | Return `{ top, right, bottom, left, x, y, width, height }`. |
+| `render(options = {}, pixelRatio = 1)` | `HTMLCanvasElement` | Render the path or shape into a separate canvas at the requested pixel density. |
 
 `Path` supports the primitive and vertex signatures listed under `CanvasContext`, except `point`, `begin`, and `end`. Use `close()` to close a retained path. Geometry-building methods return the path or shape for chaining.
 
 Shape properties `x`, `y`, `angle`, `anchorX`, and `anchorY` control position and rotation. `shape.containsPoint(x, y)` accepts global coordinates.
+
+Shapes compose ordered layers and contours; contours erase earlier layers. Empty geometry has zero-sized bounds. Shape bounds enclose rotated layer bounding boxes and may be conservative around curves. Rendering expands and rounds bounds for strokes and shadows; geometric bounding boxes exclude that padding.
 
 Rendering options are `fillStyle`, `strokeStyle`, `lineWidth`, `shadowColor`, `shadowBlur`, `shadowOffsetX`, and `shadowOffsetY`. Supply a fill or stroke to render visible geometry, and an explicit `lineWidth` when using a stroke. `CanvasContext.drawPath()` and `drawShape()` supply the current drawing options and choose a rendering resolution from the active transform automatically. When calling `render()` directly, `pixelRatio` must be a positive, finite number; it controls the output resolution without changing the geometry coordinates or bounds.
 
@@ -273,32 +282,47 @@ const direction = velocity.clone().normalize();
 const position = Vector.create(10, 20).add(velocity);
 ```
 
-| Signature | Description |
-| --- | --- |
-| `new Vector(x = 0, y = 0)`, `Vector.create(x = 0, y = 0)` | Create a vector with public `x` and `y` components |
-| `Vector.parse(x = 0, y = 0)` | Return an existing vector unchanged, or create one from components |
-| `Vector.random()` | Create a vector with each component sampled independently from `[0, 1)` |
-| `clone()` | Return an independent copy |
-| `add(x, y)`, `sub(x, y)`, `mult(x, y)`, `div(x, y)` | Apply component-wise arithmetic |
-| `dot(x, y)`, `distTo(x, y)`, `angleTo(x, y)` | Return the dot product, distance, or difference in headings |
-| `getMag()`, `getHeading()` | Return the magnitude or heading |
-| `setMag(mag)`, `setHeading(angle)` | Set magnitude or heading, preserving the other |
-| `normalize()`, `limit(mag)` | Set magnitude to 1 or limit its maximum |
-| `rotate(angle)` | Rotate while preserving magnitude |
+| Method | Returns | Description |
+| --- | --- | --- |
+| `new Vector(x = 0, y = 0)`, `Vector.create(x = 0, y = 0)` | `Vector` | Create a vector with public `x` and `y` components. |
+| `Vector.parse(x = 0, y = 0)` | `Vector` | Return an existing vector unchanged, or create one from components. |
+| `Vector.random()` | `Vector` | Create a vector with each component sampled independently from `[0, 1)`. |
+| `clone()` | `Vector` | Return an independent copy. |
+| `add(x, y)`, `sub(x, y)`, `mult(x, y)`, `div(x, y)` | `Vector` | Apply component-wise arithmetic. |
+| `dot(x, y)`, `distTo(x, y)`, `angleTo(x, y)` | `number` | Return the dot product, distance, or difference in headings. |
+| `getMag()`, `getHeading()` | `number` | Return the magnitude or heading. |
+| `setMag(mag)`, `setHeading(angle)` | `Vector` | Set magnitude or heading, preserving the other. |
+| `normalize()`, `limit(mag)` | `Vector` | Set magnitude to 1 or limit its maximum. |
+| `rotate(angle)` | `Vector` | Rotate while preserving magnitude. |
 
 Arithmetic, dot product, distance, and angle methods accept a vector or separate X/Y components. Arithmetic and magnitude/heading changes mutate the vector and return it; use `clone()` to preserve the original.
 
-## Behavior notes
+`Vector.random()` does not return a unit vector. `angleTo()` returns the other heading minus the current heading without wrapping the result.
 
-- Drawing coordinates are canvas units; angles are radians. `circle` takes a radius, while `ellipse` takes width and height.
-- Construction prepares the canvas and context without registering input listeners or calling lifecycle hooks. Call `start()` after construction completes; `attach()` does this automatically. Subclass fields and private members are initialized before the hooks run.
-- `start()` synchronously calls `setup()`, followed by the first `update()` unless `noLoop()` or `dispose()` was called. Repeated calls do nothing, including after disposal or failed startup. Update times are in seconds, with zero delta and elapsed time on the first update.
-- `noLoop()` stops future updates. `dispose()` also removes listeners and clears input state; repeated disposal is safe. Neither removes the canvas element, and there is no loop restart method.
-- If startup fails, the sketch is disposed and the error is rethrown. `Canvas.attach()` removes its generated canvas if construction or startup fails; a caller-owned canvas remains in place.
-- `push()` and `pop()` save and restore transforms and styles. `resize()` clears pixels and saved state; `reset()` restores drawing defaults and the transform without clearing pixels.
-- Shapes compose ordered layers and contours; contours erase earlier layers. Empty geometry has zero-sized bounds. Shape bounds enclose rotated layer bounding boxes and may be conservative around curves.
-- Rendering expands and rounds bounds for strokes and shadows; geometric bounding boxes exclude that padding.
-- `Vector.random()` does not return a unit vector. `angleTo()` returns the other heading minus the current heading without wrapping the result.
+## Lifecycle
+
+Constructing a `Canvas` prepares the canvas and context. Call `start()` after construction to register input listeners, call `setup()`, and begin updates. `Canvas.attach()` creates a canvas and starts the sketch automatically after subclass initialization finishes.
+
+For an existing canvas, construct the sketch and then start it:
+
+```js
+const sketch = new Sketch(document.getElementById('canvas'), 600, 400);
+sketch.start();
+```
+
+`start()` synchronously calls `setup()`, followed by the first `update()` unless `noLoop()` or `dispose()` was called. Update times are in seconds, with zero delta and elapsed time on the first update. Repeated calls to `start()` do nothing, including after disposal or failed startup.
+
+`noLoop()` stops future updates while retaining input listeners. `dispose()` also removes listeners and clears input state. Neither removes the canvas element, and there is no loop restart method. Repeated disposal is safe. Call `dispose()` before removing the canvas from the DOM.
+
+If startup fails, the sketch releases its resources before rethrowing the error. `Canvas.attach()` removes its generated canvas if construction or startup fails; a caller-owned canvas remains in place.
+
+## Accessibility
+
+Applications supply canvas roles, accessible names, and fallback content. For a static drawing, use `role="img"` with a meaningful accessible label and a text description of the information it conveys.
+
+`Canvas` adds `tabindex="0"` when no tab index is present. Click or tab to the canvas to focus it for keyboard input; existing tab order and focus styles are preserved. Provide keyboard alternatives and native controls for interactive drawings, with visible focus indicators.
+
+Applications handle `prefers-reduced-motion`. Check the preference when creating a sketch and offer a static rendering or reduced animation when requested. F5 does not disable animation automatically.
 
 ## Development
 
