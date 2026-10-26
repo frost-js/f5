@@ -1,11 +1,11 @@
 # F5
 
-[![CI](https://github.com/elusivecodes/F5/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elusivecodes/F5/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/elusivecodes/F5/branch/main/graph/badge.svg)](https://codecov.io/gh/elusivecodes/F5)
+[![CI](https://github.com/frost-js/f5/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/frost-js/f5/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/frost-js/f5/branch/main/graph/badge.svg)](https://codecov.io/gh/frost-js/f5)
 [![npm version](https://img.shields.io/npm/v/%40fr0st%2Ff5?style=flat-square)](https://www.npmjs.com/package/@fr0st/f5)
 [![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Ff5?style=flat-square)](https://www.npmjs.com/package/@fr0st/f5)
-[![JS gzip size](https://img.badgesize.io/elusivecodes/F5/main/dist/f5.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/elusivecodes/F5/blob/main/dist/f5.min.js)
-[![license](https://img.shields.io/github/license/elusivecodes/F5?style=flat-square)](./LICENSE)
+[![JS gzip size](https://img.badgesize.io/frost-js/f5/main/dist/f5.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/frost-js/f5/blob/main/dist/f5.min.js)
+[![license](https://img.shields.io/github/license/frost-js/f5?style=flat-square)](./LICENSE)
 
 Lightweight 2D canvas drawing and animation with paths, layered shapes, hit testing, and mutable vectors.
 

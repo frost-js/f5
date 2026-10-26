@@ -1,6 +1,6 @@
 {
     "name": "@fr0st/f5",
-    "version": "2.0.4",
+    "version": "3.0.0",
     "private": false,
     "description": "Lightweight 2D canvas drawing, animation, paths, shapes, and vector mathematics.",
     "keywords": [
@@ -10,14 +10,14 @@
         "2d",
         "animation"
     ],
-    "homepage": "https://github.com/elusivecodes/F5",
+    "homepage": "https://github.com/frost-js/f5",
     "bugs": {
-        "url": "https://github.com/elusivecodes/F5/issues",
+        "url": "https://github.com/frost-js/f5/issues",
         "email": "elusivecodes@gmail.com"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/elusivecodes/F5.git"
+        "url": "git+https://github.com/frost-js/f5.git"
     },
     "license": "MIT",
     "author": "Elusive <elusivecodes@gmail.com>",
