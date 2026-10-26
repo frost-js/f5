@@ -115,7 +115,7 @@ class Sketch extends Canvas {
 }
 
 const sketch = Sketch.attach(document.body, 600, 400);
-// Call sketch.destroy() when the sketch is removed or its owner is disposed.
+// Call sketch.dispose() when the sketch is removed or its owner is disposed.
 ```
 
 ## API
@@ -131,7 +131,7 @@ Subclass `Canvas` to implement `setup()` and `update(deltaTime, elapsedTime)`. T
 | `setup()` | Initialization hook called during construction |
 | `update(deltaTime, elapsedTime)` | Animation hook receiving time in seconds |
 | `noLoop()` | Stop future updates |
-| `destroy()` | Stop updates, remove listeners, clear input state, and return the instance |
+| `dispose()` | Stop updates, remove listeners, clear input state, and return the instance |
 | `isKeyPressed(code)` | Check a physical key, or any key when omitted |
 | `isMousePressed(button = 0)` | Check a button while the pointer is inside the canvas |
 | `mousePos()` | Return the pointer position as a `Vector`, or `null` outside the canvas |
@@ -146,9 +146,9 @@ Input hooks receive the native event as their last argument:
 | `onMouseMove` | Canvas-local `x`, `y` |
 | `onMouseEnter`, `onMouseLeave` | None |
 
-Click the canvas to focus it for keyboard input.
+Click or tab to the canvas to focus it for keyboard input. Existing `tabindex` and focus styles are preserved. Mouse positions use canvas drawing units, including when CSS scales the canvas.
 
-The optional fourth constructor argument, or fourth argument to `Canvas.attach`, accepts `{ runtime }`. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling/cancellation functions together. This supports deterministic tests and custom browser embedding; defaults use browser timing and window events.
+The optional fourth constructor argument, or fourth argument to `Canvas.attach`, accepts `{ runtime }`. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling/cancellation functions together. This supports deterministic tests and custom browser embedding; defaults use the canvas element’s owning window for timing and events.
 
 ### CanvasContext
 
@@ -282,7 +282,8 @@ Arithmetic, dot product, distance, and angle methods accept a vector or separate
 
 - Drawing coordinates are canvas units; angles are radians. `circle` takes a radius, while `ellipse` takes width and height.
 - `setup()` runs during construction, followed by the first `update()` unless the loop was stopped in `setup()`. Initialize sketch state in `setup()` so it is available to that first update. Update times are in seconds, with zero delta and elapsed time on the first update.
-- `noLoop()` stops future updates. `destroy()` also removes listeners and clears input state; repeated destruction is safe. Neither removes the canvas element, and there is no loop restart method.
+- `noLoop()` stops future updates. `dispose()` also removes listeners and clears input state; repeated disposal is safe. Neither removes the canvas element, and there is no loop restart method.
+- If construction fails, registered listeners are removed. `Canvas.attach()` also removes the canvas it created; constructing with an existing canvas leaves that element in place.
 - `push()` and `pop()` save and restore transforms and styles. `resize()` clears pixels and saved state; `reset()` restores drawing defaults and the transform without clearing pixels.
 - Shapes compose ordered layers and contours; contours erase earlier layers. Empty geometry has zero-sized bounds. Shape bounds enclose rotated layer bounding boxes and may be conservative around curves.
 - Rendering expands and rounds bounds for strokes and shadows; geometric bounding boxes exclude that padding.
@@ -307,6 +308,8 @@ After building, `npm run test:coverage` runs Chromium tests and writes coverage 
 To view the demo, open `demo/index.html` in your browser after building.
 
 ## Migration
+
+Use `dispose()` for canvas cleanup, matching the sibling libraries. `destroy()` remains available as a deprecated alias.
 
 The package root resolves to built ESM instead of `src/index.js`. The UMD global `F5`, UMD filenames, and five named exports are retained.
 

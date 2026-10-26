@@ -10,6 +10,27 @@ test.describe('Canvas', () => {
         });
     });
 
+    test.describe('construction failures', () => {
+        for (const hook of ['setup', 'update']) {
+            test(`removes listeners when ${hook} throws`, ({ animationWindow, canvasNode }) => {
+                const node = canvasNode();
+                const error = new Error(`${hook} failed`);
+
+                class Sketch extends Canvas {
+                    [hook]() {
+                        throw error;
+                    }
+                }
+
+                expect(() => new Sketch(node, 600, 400, {
+                    runtime: animationWindow,
+                })).toThrow(error);
+                expect(node.listenerCount()).toBe(0);
+                expect(animationWindow.listenerCount()).toBe(0);
+            });
+        }
+    });
+
     test.describe('animation', () => {
         test('uses the injected runtime for delta and elapsed time', ({ animationWindow, canvasNode }) => {
             const node = canvasNode();
@@ -50,6 +71,54 @@ test.describe('Canvas', () => {
                     elapsedTime: 0.016,
                 },
             ]);
+        });
+
+        test('uses the owning window for default scheduling, timing, and global input', ({
+            animationWindow,
+            canvasNode,
+        }) => {
+            const node = canvasNode(undefined, {
+                ownerDocument: {
+                    defaultView: {
+                        ...animationWindow,
+                        performance: { now: animationWindow.now },
+                    },
+                },
+            });
+
+            class Sketch extends Canvas {
+                setup() {
+                    this.calls = [];
+                }
+
+                update(deltaTime) {
+                    this.calls.push(deltaTime);
+                }
+            }
+
+            const sketch = new Sketch(node);
+
+            try {
+                animationWindow.advanceTime(16);
+                animationWindow.runFrame(1);
+
+                expect(sketch.calls).toEqual([0, 0.016]);
+
+                node.dispatch('keydown', { code: 'KeyA', key: 'a' });
+
+                expect(sketch.isKeyPressed('KeyA')).toBe(true);
+
+                animationWindow.dispatch('keyup', { code: 'KeyA' });
+
+                expect(sketch.isKeyPressed('KeyA')).toBe(false);
+            } finally {
+                sketch.dispose();
+            }
+
+            animationWindow.runFrame(2);
+
+            expect(sketch.calls).toEqual([0, 0.016]);
+            expect(animationWindow.listenerCount()).toBe(0);
         });
 
         test('stops scheduled frames immediately when noLoop is called', ({
@@ -103,18 +172,18 @@ test.describe('Canvas', () => {
             });
 
             node.dispatch('mouseenter', {
-                offsetX: 5,
-                offsetY: 6,
+                clientX: 15,
+                clientY: 26,
             });
             node.dispatch('mousedown', {
                 button: 0,
-                offsetX: 5,
-                offsetY: 6,
+                clientX: 15,
+                clientY: 26,
             });
             node.dispatch('mousedown', {
                 button: 2,
-                offsetX: 5,
-                offsetY: 6,
+                clientX: 15,
+                clientY: 26,
             });
 
             animationWindow.dispatch('mouseup', {
@@ -184,8 +253,18 @@ test.describe('Canvas', () => {
         });
     });
 
-    test.describe('#destroy', () => {
-        test('destroys listeners and clears input state', ({ animationWindow, canvasNode }) => {
+    test.describe('#dispose', () => {
+        test('keeps destroy as a compatible cleanup alias', ({ animationWindow, canvasNode }) => {
+            const node = canvasNode();
+            const sketch = new Canvas(node, 600, 400, { runtime: animationWindow });
+
+            expect(sketch.destroy()).toBe(sketch);
+            expect(node.listenerCount()).toBe(0);
+            expect(animationWindow.listenerCount()).toBe(0);
+            expect(sketch.dispose()).toBe(sketch);
+        });
+
+        test('removes listeners and clears input state', ({ animationWindow, canvasNode }) => {
             const node = canvasNode();
 
             class Sketch extends Canvas {
@@ -211,20 +290,20 @@ test.describe('Canvas', () => {
             });
 
             node.dispatch('mouseenter', {
-                offsetX: 5,
-                offsetY: 6,
+                clientX: 15,
+                clientY: 26,
             });
             node.dispatch('mousedown', {
                 button: 0,
-                offsetX: 5,
-                offsetY: 6,
+                clientX: 15,
+                clientY: 26,
             });
             node.dispatch('keydown', {
                 code: 'KeyA',
                 key: 'a',
             });
 
-            sketch.destroy();
+            sketch.dispose();
 
             animationWindow.dispatch('mouseup', {
                 button: 0,

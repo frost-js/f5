@@ -77,7 +77,7 @@ pauseButton.addEventListener('click', () => {
 });
 
 document.getElementById('reset-animation').addEventListener('click', () => {
-    sketch.destroy();
+    sketch.dispose();
     container.replaceChildren();
     sketch = ContainsPointSketch.attach(container);
     updateControls();

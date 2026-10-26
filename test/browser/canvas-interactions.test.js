@@ -131,6 +131,49 @@ test.describe('Canvas interactions', () => {
 
             expect(await page.evaluate(() => window.sketch.events.mouseClick)).toEqual([0, 0]);
         });
+
+        test('maps CSS-scaled mouse positions and outside releases to drawing coordinates', async ({ page }) => {
+            const canvas = page.locator('#root canvas');
+
+            await canvas.evaluate((node) => {
+                node.style.width = '100px';
+                node.style.height = '60px';
+            });
+            await canvas.hover({ position: { x: 20, y: 15 } });
+
+            const position = await page.evaluate(() => window.sketch.events.mouseMove);
+
+            expect(position.x).toBeCloseTo(40);
+            expect(position.y).toBeCloseTo(30);
+
+            await page.mouse.down();
+
+            const bounds = await canvas.boundingBox();
+
+            await page.mouse.move(bounds.x + bounds.width + 10, bounds.y + 10);
+            await page.mouse.up();
+
+            const released = await page.evaluate(() => ({
+                position: window.sketch.mousePos(),
+                pressed: window.sketch.isMousePressed(),
+                buttons: window.sketch.events.mouseUp,
+            }));
+
+            expect(released.position.x).toBeCloseTo(220);
+            expect(released.position.y).toBeCloseTo(20);
+            expect(released.pressed).toBe(false);
+            expect(released.buttons).toEqual([0]);
+        });
+
+        test('ignores mouse coordinates when the canvas has no displayed size', async ({ page }) => {
+            await page.locator('#root canvas').evaluate((node) => {
+                node.style.display = 'none';
+                node.dispatchEvent(new MouseEvent('mousemove', { clientX: 20, clientY: 30 }));
+            });
+
+            expect(await page.evaluate(() => window.sketch.mousePos())).toBeNull();
+            expect(await page.evaluate(() => window.sketch.events.mouseMove)).toBeNull();
+        });
     });
 
     test.describe('keyboard', () => {

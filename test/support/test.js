@@ -40,7 +40,7 @@ const test = base.extend({
                 await use();
             } finally {
                 await page.evaluate(() => {
-                    window.sketch?.destroy();
+                    window.sketch?.dispose();
                     delete window.sketch;
                 });
 

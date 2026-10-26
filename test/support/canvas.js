@@ -12,10 +12,15 @@ export function createCanvasNode(context = createRecordingContext(), extra = {})
             return {
                 left: 10,
                 top: 20,
+                width: this.width,
+                height: this.height,
             };
         },
         getContext() {
             return context;
+        },
+        hasAttribute(name) {
+            return Object.hasOwn(this, name);
         },
         setAttribute(name, value) {
             this[name] = String(value);

@@ -19,7 +19,7 @@ import Vector from './vector.js';
  */
 export default class Canvas {
     #cancelAnimationFrame;
-    #destroyed = false;
+    #disposed = false;
     #eventTarget;
     #frameId = null;
     #keysDown = new Set();
@@ -43,11 +43,16 @@ export default class Canvas {
      * @returns {Canvas} A new Canvas object.
      */
     static attach(parent = document.body, width = 600, height = 400, options = {}) {
-        const canvas = document.createElement('canvas');
+        const canvas = parent.ownerDocument.createElement('canvas');
 
         parent.append(canvas);
 
-        return new this(canvas, width, height, options);
+        try {
+            return new this(canvas, width, height, options);
+        } catch (error) {
+            canvas.remove();
+            throw error;
+        }
     }
 
     /**
@@ -64,68 +69,85 @@ export default class Canvas {
         }
 
         const runtime = options.runtime ?? {};
+        const view = node.ownerDocument?.defaultView ?? globalThis.window;
+        const clock = view?.performance ?? globalThis.performance;
 
         this.#node = node;
-        this.#eventTarget = runtime.eventTarget ?? globalThis.window;
+        this.#eventTarget = runtime.eventTarget ?? view;
         this.#cancelAnimationFrame = runtime.cancelAnimationFrame ??
             this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
-        this.#now = runtime.now ?? (() => globalThis.performance.now());
+        this.#now = runtime.now ?? (() => clock.now());
         this.#requestAnimationFrame = runtime.requestAnimationFrame ??
             this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
 
         this.context = new CanvasContext(this.#node, width, height);
 
-        this.#node.setAttribute('tabindex', '1');
-        this.#node.style.setProperty('outline', '0');
+        if (!this.#node.hasAttribute('tabindex')) {
+            this.#node.setAttribute('tabindex', '0');
+        }
 
-        this.#events();
-        this.setup();
+        try {
+            this.#events();
+            this.setup();
 
-        const run = () => {
-            if (this.#destroyed || !this.#loop) {
-                return;
-            }
+            const run = () => {
+                if (this.#disposed || !this.#loop) {
+                    return;
+                }
 
-            const now = this.#now();
+                const now = this.#now();
 
-            if (this.#startTime === null) {
-                this.#startTime = now;
-            }
+                if (this.#startTime === null) {
+                    this.#startTime = now;
+                }
 
-            const deltaTime = this.#previousTime === null ?
-                0 :
-                (now - this.#previousTime) / 1000;
-            const elapsedTime = (now - this.#startTime) / 1000;
+                const deltaTime = this.#previousTime === null ?
+                    0 :
+                    (now - this.#previousTime) / 1000;
+                const elapsedTime = (now - this.#startTime) / 1000;
 
-            this.#previousTime = now;
+                this.#previousTime = now;
 
-            this.update(deltaTime, elapsedTime);
+                this.update(deltaTime, elapsedTime);
 
-            if (!this.#loop) {
-                return;
-            }
+                if (!this.#loop) {
+                    return;
+                }
 
-            this.#frameId = this.#requestAnimationFrame(() => {
-                this.#frameId = null;
+                this.#frameId = this.#requestAnimationFrame(() => {
+                    this.#frameId = null;
 
-                run();
-            });
-        };
+                    run();
+                });
+            };
 
-        run();
+            run();
+        } catch (error) {
+            this.dispose();
+            throw error;
+        }
     }
 
     /**
-     * Stops the loop and remove event listeners.
+     * Disposes the Canvas.
+     * @deprecated Use dispose() instead.
      * @returns {Canvas} The Canvas.
      */
     destroy() {
-        if (this.#destroyed) {
+        return this.dispose();
+    }
+
+    /**
+     * Stops the loop, removes event listeners, and clears input state.
+     * @returns {Canvas} The Canvas.
+     */
+    dispose() {
+        if (this.#disposed) {
             return this;
         }
 
         this.noLoop();
-        this.#destroyed = true;
+        this.#disposed = true;
 
         for (const { listener, target, type } of this.#listeners) {
             if (typeof target.removeEventListener === 'function') {
@@ -343,7 +365,9 @@ export default class Canvas {
         this.#addEventListener(this.#node, 'mousemove', (e) => {
             this.#updateMouse(e);
 
-            this.onMouseMove(this.#mouseX, this.#mouseY, e);
+            if (this.#mouseX !== null && this.#mouseY !== null) {
+                this.onMouseMove(this.#mouseX, this.#mouseY, e);
+            }
         });
 
         this.#addEventListener(this.#node, 'mousedown', (e) => {
@@ -376,22 +400,21 @@ export default class Canvas {
      * @param {MouseEvent} event The mouse event.
      */
     #updateMouse(event) {
+        const bounds = this.#node.getBoundingClientRect();
+
         if (
-            event.target === this.#node &&
-            Number.isFinite(event.offsetX) &&
-            Number.isFinite(event.offsetY)
+            !bounds.width ||
+            !bounds.height ||
+            !Number.isFinite(event.clientX) ||
+            !Number.isFinite(event.clientY)
         ) {
-            this.#mouseX = event.offsetX;
-            this.#mouseY = event.offsetY;
+            this.#mouseX = null;
+            this.#mouseY = null;
 
             return;
         }
 
-        if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
-            const bounds = this.#node.getBoundingClientRect();
-
-            this.#mouseX = event.clientX - bounds.left;
-            this.#mouseY = event.clientY - bounds.top;
-        }
+        this.#mouseX = (event.clientX - bounds.left) * this.context.width / bounds.width;
+        this.#mouseY = (event.clientY - bounds.top) * this.context.height / bounds.height;
     }
 }

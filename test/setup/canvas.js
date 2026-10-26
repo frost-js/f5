@@ -8,7 +8,7 @@
  */
 export async function setupCanvas({ page }) {
     await page.evaluate(() => {
-        window.sketch?.destroy();
+        window.sketch?.dispose();
         document.body.innerHTML = '<div id="root"></div><canvas id="canvas"></canvas>';
         window.sketch = null;
     });

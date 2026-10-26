@@ -36,12 +36,15 @@ export default class Path {
             throw new TypeError('Path requires a 2D canvas context.');
         }
 
-        if (typeof Path2D !== 'function') {
+        const view = context.canvas?.ownerDocument?.defaultView ?? globalThis;
+        const PathClass = view.Path2D;
+
+        if (typeof PathClass !== 'function') {
             throw new TypeError('Path requires Path2D support.');
         }
 
         this.#context = context;
-        this.#path = new Path2D();
+        this.#path = new PathClass();
     }
 
     /**
@@ -366,7 +369,8 @@ export default class Path {
     render(options = {}) {
         const bounds = this.getBoundingBox();
         const renderBounds = getRenderBounds(bounds, options);
-        const canvas = document.createElement('canvas');
+        const ownerDocument = this.#context.canvas?.ownerDocument ?? globalThis.document;
+        const canvas = ownerDocument.createElement('canvas');
         const context = canvas.getContext('2d');
 
         if (!context) {

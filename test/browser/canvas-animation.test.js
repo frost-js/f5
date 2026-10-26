@@ -53,7 +53,7 @@ test.describe('Canvas animation', () => {
 
                     return window.sketch.calls;
                 } finally {
-                    window.sketch?.destroy();
+                    window.sketch?.dispose();
                     delete window.sketch;
                 }
             });
@@ -72,7 +72,7 @@ test.describe('Canvas animation', () => {
     });
 
     test.describe('cancellation', () => {
-        test('destroy stops browser animation and releases input listeners', async ({ page }) => {
+        test('dispose stops browser animation and releases input listeners', async ({ page }) => {
             await page.evaluate(() => {
                 class Sketch extends F5.Canvas {
                     onKeyDown() {
@@ -96,8 +96,8 @@ test.describe('Canvas animation', () => {
             await page.keyboard.down('a');
             const before = await page.evaluate(() => {
                 const frames = window.sketch.frames;
-                window.sketch.destroy();
-                window.sketch.destroy();
+                window.sketch.dispose();
+                window.sketch.dispose();
                 return frames;
             });
             expect(before).toBeGreaterThan(1);

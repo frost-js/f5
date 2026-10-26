@@ -33,6 +33,9 @@ export function createEventTarget(extra = {}) {
             entries.push(callback);
             listeners.set(type, entries);
         },
+        listenerCount() {
+            return [...listeners.values()].reduce((count, entries) => count + entries.length, 0);
+        },
         removeEventListener(type, callback) {
             const entries = listeners.get(type) ?? [];
 

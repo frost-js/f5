@@ -104,7 +104,7 @@ pauseButton.addEventListener('click', () => {
 });
 
 document.getElementById('reset-animation').addEventListener('click', () => {
-    sketch.destroy();
+    sketch.dispose();
     container.replaceChildren();
     sketch = ContourSketch.attach(container);
     updateControls();

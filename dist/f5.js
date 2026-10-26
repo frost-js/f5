@@ -423,9 +423,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		*/
 		constructor(context) {
 			if (!context || typeof context.isPointInPath !== "function") throw new TypeError("Path requires a 2D canvas context.");
-			if (typeof Path2D !== "function") throw new TypeError("Path requires Path2D support.");
+			const PathClass = (context.canvas?.ownerDocument?.defaultView ?? globalThis).Path2D;
+			if (typeof PathClass !== "function") throw new TypeError("Path requires Path2D support.");
 			this.#context = context;
-			this.#path = new Path2D();
+			this.#path = new PathClass();
 		}
 		/**
 		* Adds an arc.
@@ -716,7 +717,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		render(options = {}) {
 			const bounds = this.getBoundingBox();
 			const renderBounds = getRenderBounds(bounds, options);
-			const canvas = document.createElement("canvas");
+			const canvas = (this.#context.canvas?.ownerDocument ?? globalThis.document).createElement("canvas");
 			const context = canvas.getContext("2d");
 			if (!context) throw new Error("Unable to create a 2D canvas context.");
 			canvas.width = renderBounds.width;
@@ -1121,7 +1122,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		* @returns {HTMLCanvasElement} The rendered canvas.
 		*/
 		render(options = {}) {
-			const canvas = document.createElement("canvas");
+			const canvas = (this.#context.canvas?.ownerDocument ?? globalThis.document).createElement("canvas");
 			if (!this.#layers.length) {
 				canvas.width = 0;
 				canvas.height = 0;
@@ -1863,7 +1864,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	*/
 	var Canvas = class {
 		#cancelAnimationFrame;
-		#destroyed = false;
+		#disposed = false;
 		#eventTarget;
 		#frameId = null;
 		#keysDown = /* @__PURE__ */ new Set();
@@ -1886,9 +1887,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		* @returns {Canvas} A new Canvas object.
 		*/
 		static attach(parent = document.body, width = 600, height = 400, options = {}) {
-			const canvas = document.createElement("canvas");
+			const canvas = parent.ownerDocument.createElement("canvas");
 			parent.append(canvas);
-			return new this(canvas, width, height, options);
+			try {
+				return new this(canvas, width, height, options);
+			} catch (error) {
+				canvas.remove();
+				throw error;
+			}
 		}
 		/**
 		* Creates a Canvas.
@@ -1901,40 +1907,54 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		constructor(node, width = 600, height = 400, options = {}) {
 			if (!node || typeof node.addEventListener !== "function") throw new TypeError("Canvas requires a canvas element.");
 			const runtime = options.runtime ?? {};
+			const view = node.ownerDocument?.defaultView ?? globalThis.window;
+			const clock = view?.performance ?? globalThis.performance;
 			this.#node = node;
-			this.#eventTarget = runtime.eventTarget ?? globalThis.window;
+			this.#eventTarget = runtime.eventTarget ?? view;
 			this.#cancelAnimationFrame = runtime.cancelAnimationFrame ?? this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
-			this.#now = runtime.now ?? (() => globalThis.performance.now());
+			this.#now = runtime.now ?? (() => clock.now());
 			this.#requestAnimationFrame = runtime.requestAnimationFrame ?? this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
 			this.context = new CanvasContext(this.#node, width, height);
-			this.#node.setAttribute("tabindex", "1");
-			this.#node.style.setProperty("outline", "0");
-			this.#events();
-			this.setup();
-			const run = () => {
-				if (this.#destroyed || !this.#loop) return;
-				const now = this.#now();
-				if (this.#startTime === null) this.#startTime = now;
-				const deltaTime = this.#previousTime === null ? 0 : (now - this.#previousTime) / 1e3;
-				const elapsedTime = (now - this.#startTime) / 1e3;
-				this.#previousTime = now;
-				this.update(deltaTime, elapsedTime);
-				if (!this.#loop) return;
-				this.#frameId = this.#requestAnimationFrame(() => {
-					this.#frameId = null;
-					run();
-				});
-			};
-			run();
+			if (!this.#node.hasAttribute("tabindex")) this.#node.setAttribute("tabindex", "0");
+			try {
+				this.#events();
+				this.setup();
+				const run = () => {
+					if (this.#disposed || !this.#loop) return;
+					const now = this.#now();
+					if (this.#startTime === null) this.#startTime = now;
+					const deltaTime = this.#previousTime === null ? 0 : (now - this.#previousTime) / 1e3;
+					const elapsedTime = (now - this.#startTime) / 1e3;
+					this.#previousTime = now;
+					this.update(deltaTime, elapsedTime);
+					if (!this.#loop) return;
+					this.#frameId = this.#requestAnimationFrame(() => {
+						this.#frameId = null;
+						run();
+					});
+				};
+				run();
+			} catch (error) {
+				this.dispose();
+				throw error;
+			}
 		}
 		/**
-		* Stops the loop and remove event listeners.
+		* Disposes the Canvas.
+		* @deprecated Use dispose() instead.
 		* @returns {Canvas} The Canvas.
 		*/
 		destroy() {
-			if (this.#destroyed) return this;
+			return this.dispose();
+		}
+		/**
+		* Stops the loop, removes event listeners, and clears input state.
+		* @returns {Canvas} The Canvas.
+		*/
+		dispose() {
+			if (this.#disposed) return this;
 			this.noLoop();
-			this.#destroyed = true;
+			this.#disposed = true;
 			for (const { listener, target, type } of this.#listeners) if (typeof target.removeEventListener === "function") target.removeEventListener(type, listener);
 			this.#listeners = [];
 			this.#mouseDown.clear();
@@ -2079,7 +2099,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			});
 			this.#addEventListener(this.#node, "mousemove", (e) => {
 				this.#updateMouse(e);
-				this.onMouseMove(this.#mouseX, this.#mouseY, e);
+				if (this.#mouseX !== null && this.#mouseY !== null) this.onMouseMove(this.#mouseX, this.#mouseY, e);
 			});
 			this.#addEventListener(this.#node, "mousedown", (e) => {
 				this.#mouseDown.add(e.button);
@@ -2101,16 +2121,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		* @param {MouseEvent} event The mouse event.
 		*/
 		#updateMouse(event) {
-			if (event.target === this.#node && Number.isFinite(event.offsetX) && Number.isFinite(event.offsetY)) {
-				this.#mouseX = event.offsetX;
-				this.#mouseY = event.offsetY;
+			const bounds = this.#node.getBoundingClientRect();
+			if (!bounds.width || !bounds.height || !Number.isFinite(event.clientX) || !Number.isFinite(event.clientY)) {
+				this.#mouseX = null;
+				this.#mouseY = null;
 				return;
 			}
-			if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
-				const bounds = this.#node.getBoundingClientRect();
-				this.#mouseX = event.clientX - bounds.left;
-				this.#mouseY = event.clientY - bounds.top;
-			}
+			this.#mouseX = (event.clientX - bounds.left) * this.context.width / bounds.width;
+			this.#mouseY = (event.clientY - bounds.top) * this.context.height / bounds.height;
 		}
 	};
 

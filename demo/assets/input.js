@@ -1,57 +1,62 @@
 class InputSketch extends F5.Canvas {
-    _write(text) {
-        document.getElementById('input-status').textContent = text;
-
-        this.context
-            .background('#f1f5f9')
-            .fill('#000')
-            .noStroke()
-            .fontSize(24)
-            .textAlign('center')
-            .text(text, 300, 200);
-    }
-
     onKeyDown(key) {
-        this._write(`Key Down: ${key}`);
+        writeStatus(this.context, `Key Down: ${key}`);
     }
 
     onKeyPress(key) {
-        this._write(`Key Press: ${key}`);
+        writeStatus(this.context, `Key Press: ${key}`);
     }
 
     onKeyUp(key) {
-        this._write(`Key Up: ${key}`);
+        writeStatus(this.context, `Key Up: ${key}`);
     }
 
     onMouseClick(button) {
-        this._write(`Mouse Click: ${button}`);
+        writeStatus(this.context, `Mouse Click: ${button}`);
     }
 
     onMouseDown(button) {
-        this._write(`Mouse Down: ${button}`);
+        writeStatus(this.context, `Mouse Down: ${button}`);
     }
 
     onMouseEnter() {
-        this._write('Mouse Enter');
+        writeStatus(this.context, 'Mouse Enter');
     }
 
     onMouseLeave() {
-        this._write('Mouse Leave');
+        writeStatus(this.context, 'Mouse Leave');
     }
 
     onMouseMove(x, y) {
-        this._write(`Mouse Move: ${x} ${y}`);
+        writeStatus(this.context, `Mouse Move: ${x} ${y}`);
     }
 
     onMouseUp(button) {
-        this._write(`Mouse Up: ${button}`);
+        writeStatus(this.context, `Mouse Up: ${button}`);
     }
 
     setup() {
         this.noLoop();
 
-        this._write('Click here, then press a key');
+        writeStatus(this.context, 'Click here, then press a key');
     }
+}
+
+/**
+ * Updates the input status and draws it on the canvas.
+ * @param {F5.CanvasContext} context The drawing context.
+ * @param {string} text The input status.
+ */
+function writeStatus(context, text) {
+    document.getElementById('input-status').textContent = text;
+
+    context
+        .background('#f1f5f9')
+        .fill('#000')
+        .noStroke()
+        .fontSize(24)
+        .textAlign('center')
+        .text(text, 300, 200);
 }
 
 const input = document.getElementById('input');

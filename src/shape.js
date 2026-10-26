@@ -142,7 +142,8 @@ export default class Shape {
      * @returns {HTMLCanvasElement} The rendered canvas.
      */
     render(options = {}) {
-        const canvas = document.createElement('canvas');
+        const ownerDocument = this.#context.canvas?.ownerDocument ?? globalThis.document;
+        const canvas = ownerDocument.createElement('canvas');
 
         if (!this.#layers.length) {
             canvas.width = 0;
