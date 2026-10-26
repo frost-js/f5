@@ -1,16 +1,77 @@
 # F5
 
-Lightweight 2D canvas drawing and animation with paths, layered shapes, hit testing, and mutable vectors. F5 has no runtime dependencies.
+[![CI](https://github.com/elusivecodes/F5/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elusivecodes/F5/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/elusivecodes/F5/branch/main/graph/badge.svg)](https://codecov.io/gh/elusivecodes/F5)
+[![npm version](https://img.shields.io/npm/v/%40fr0st%2Ff5?style=flat-square)](https://www.npmjs.com/package/@fr0st/f5)
+[![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Ff5?style=flat-square)](https://www.npmjs.com/package/@fr0st/f5)
+[![JS gzip size](https://img.badgesize.io/elusivecodes/F5/main/dist/f5.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/elusivecodes/F5/blob/main/dist/f5.min.js)
+[![license](https://img.shields.io/github/license/elusivecodes/F5?style=flat-square)](./LICENSE)
+
+Lightweight 2D canvas drawing and animation with paths, layered shapes, hit testing, and mutable vectors.
+
+## Highlights
+
+- Prebuilt ESM and UMD bundles in `dist/`
+- Browser UMD bundle exposed as `globalThis.F5`
+- Chainable drawing, styling, and transforms
+- Animation lifecycle with keyboard and mouse input
+- Reusable paths, layered shapes, contours, and hit testing
+- Mutable 2D vectors
+- No runtime dependencies
+- JSDoc-powered IntelliSense
+
+See the [demos](demo/index.html) for drawing, animation, and input examples.
 
 ## Installation
 
-```sh
-npm install @fr0st/f5
+### Browser projects / bundlers
+
+```bash
+npm i @fr0st/f5
 ```
 
-Build tooling requires Node.js `^20.19.0 || ^22.13.0 || >=24`. The Vite build uses the sibling Frost packages' `baseline-widely-available` browser target. Canvas drawing requires a browser with a 2D canvas context and `Path2D`; importing ESM in Node does not provide those browser APIs.
+F5's package entry point is ESM-only. Import the named exports in browser projects and bundlers. Drawing requires a browser DOM with a 2D canvas context and `Path2D`; `Vector` can also be used without a DOM.
 
-## Quick start
+```js
+import { Canvas, CanvasContext, Path, Shape, Vector } from '@fr0st/f5';
+```
+
+### Browser (ESM)
+
+Import the minified ESM bundle directly from your own copy:
+
+```html
+<canvas id="canvas"></canvas>
+<script type="module">
+    import { CanvasContext } from '/path/to/dist/f5.esm.min.js';
+
+    const context = new CanvasContext(document.getElementById('canvas'), 600, 400);
+    context.noStroke().fill('#2673dd').circle(300, 200, 60);
+</script>
+```
+
+### Browser (UMD)
+
+Load the bundle from your own copy or a CDN:
+
+```html
+<canvas id="canvas"></canvas>
+<script src="/path/to/dist/f5.min.js"></script>
+<!-- or -->
+<script src="https://cdn.jsdelivr.net/npm/@fr0st/f5@latest/dist/f5.min.js"></script>
+<script>
+    const context = new F5.CanvasContext(document.getElementById('canvas'), 600, 400);
+    context.noStroke().fill('#2673dd').circle(300, 200, 60);
+</script>
+```
+
+The UMD bundle exposes `globalThis.F5` with `Canvas`, `CanvasContext`, `Path`, `Shape`, and `Vector`. The ESM bundle exports the same five classes as named exports; there is no default export.
+
+The package root resolves to the prebuilt ESM bundle. Published files under `dist/` and `src/` are also available through matching package subpaths.
+
+## Usage
+
+### Drawing
 
 Add a canvas to your page:
 
@@ -32,20 +93,7 @@ context.background('#f4f6f8')
     .circle(center.x, center.y, 60);
 ```
 
-For a plain script tag, the UMD bundle exposes the same five classes on `window.F5`:
-
-```html
-<canvas id="canvas"></canvas>
-<script src="node_modules/@fr0st/f5/dist/f5.min.js"></script>
-<script>
-    const context = new F5.CanvasContext(document.getElementById('canvas'), 600, 400);
-    context.noStroke().fill('#2673dd').circle(300, 200, 60);
-</script>
-```
-
-The public exports are `Canvas`, `CanvasContext`, `Path`, `Shape`, and `Vector`. There is no default export.
-
-## Animation and input
+### Animation
 
 Subclass `Canvas` to implement `setup()` and `update(deltaTime, elapsedTime)`:
 
@@ -70,9 +118,23 @@ const sketch = Sketch.attach(document.body, 600, 400);
 // Call sketch.destroy() when the sketch is removed or its owner is disposed.
 ```
 
-`setup()` and the first `update()` run during construction. Initialize sketch state in `setup()` so it is available to that first update. Both time arguments are in **seconds**, with zero delta and elapsed time on the first update. Drawing coordinates are canvas units; angles are **radians**.
+## API
 
-`noLoop()` stops future updates. `destroy()` also removes listeners and clears input state; repeated destruction is safe. These methods do not remove the canvas element. There is no loop restart method.
+### Canvas
+
+Subclass `Canvas` to implement `setup()` and `update(deltaTime, elapsedTime)`. The `context` property is a `CanvasContext`.
+
+| Signature | Description |
+| --- | --- |
+| `new Canvas(node, width = 600, height = 400, options = {})` | Wrap an existing canvas and start the lifecycle |
+| `Canvas.attach(parent = document.body, width = 600, height = 400, options = {})` | Create and append a canvas, returning an instance of the class called |
+| `setup()` | Initialization hook called during construction |
+| `update(deltaTime, elapsedTime)` | Animation hook receiving time in seconds |
+| `noLoop()` | Stop future updates |
+| `destroy()` | Stop updates, remove listeners, clear input state, and return the instance |
+| `isKeyPressed(code)` | Check a physical key, or any key when omitted |
+| `isMousePressed(button = 0)` | Check a button while the pointer is inside the canvas |
+| `mousePos()` | Return the pointer position as a `Vector`, or `null` outside the canvas |
 
 Input hooks receive the native event as their last argument:
 
@@ -84,24 +146,80 @@ Input hooks receive the native event as their last argument:
 | `onMouseMove` | Canvas-local `x`, `y` |
 | `onMouseEnter`, `onMouseLeave` | None |
 
-`isKeyPressed(code)` checks a physical key; omit the code to check any key. `isMousePressed(button = 0)` checks a button while the pointer is inside the canvas. `mousePos()` returns a `Vector`, or `null` outside the canvas. Click the canvas to focus it for keyboard input.
+Click the canvas to focus it for keyboard input.
 
 The optional fourth constructor argument, or fourth argument to `Canvas.attach`, accepts `{ runtime }`. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling/cancellation functions together. This supports deterministic tests and custom browser embedding; defaults use browser timing and window events.
 
-## Drawing
+### CanvasContext
 
-`CanvasContext` wraps a canvas element and defaults to 600 by 400 units. Its drawing and style methods are chainable. Fill is initially disabled; the default stroke is black with width 1.
+```js
+new CanvasContext(node, width = 600, height = 400, options = {});
+```
 
-- Primitives: `arc`, `bezier`, `circle`, `curve`, `ellipse`, `line`, `point`, `quad`, `rect`, `square`, `triangle`.
-- Paths: `begin`, `vertex`, `bezierVertex`, `quadraticVertex`, `curveVertex`, `end`.
-- Styles: `fill`, `noFill`, `stroke`, `noStroke`, `strokeWidth`, `shadow`, `noShadow`, `shadowBlur`, `shadowOffset`.
-- Transforms: `translate`, `rotate`, `scale`, `applyMatrix`, `resetMatrix`, `push`, `pop`.
-- Text: `text`, `font`, `fontSize`, `fontWeight`, `textAlign`, `textBaseline`.
-- Images and clearing: `drawImage`, `getImage`, `putImage`, `background`, `clear`, `erase`.
+Wrap a canvas element with chainable drawing and style methods. Constructor options use these defaults:
 
-`circle` takes a radius; `ellipse` takes width and height. `push()` saves transform and style state; `pop()` restores it. `resize(width, height)` clears saved state and resets the underlying canvas. `getOptions()` returns a copy of the active drawing options. See [CanvasContext](src/canvas-context.js) for signatures and [the demos](demo/index.html) for examples.
+| Option | Default | Description |
+| --- | --- | --- |
+| `fillStyle` | `null` | Fill color, gradient, or pattern; `null` disables fill |
+| `strokeStyle` | `'#000'` | Stroke color, gradient, or pattern; `null` disables stroke |
+| `lineWidth` | `1` | Stroke width |
+| `font` | `'sans-serif'` | Font family |
+| `fontSize` | `10` | Font size in pixels |
+| `fontWeight` | `null` | Optional font weight |
+| `textAlign` | `'start'` | Horizontal text alignment |
+| `textBaseline` | `'alphabetic'` | Vertical text alignment |
+| `shadowColor` | `null` | Shadow color |
+| `shadowBlur` | `0` | Shadow blur amount |
+| `shadowOffsetX`, `shadowOffsetY` | `0` | Shadow offsets |
 
-## Paths and shapes
+Drawing methods:
+
+| Signature | Description |
+| --- | --- |
+| `arc(x, y, radius, startAngle, endAngle)` | Circular arc |
+| `bezier(x1, y1, cx1, cy1, cx2, cy2, x2, y2)` | Cubic Bézier curve |
+| `circle(x, y, radius)` | Circle centered at `(x, y)` |
+| `curve(x1, y1, cx1, cy1, cx2, cy2, radius)` | Tangent arc from a starting point |
+| `ellipse(x, y, width, height, angle = 0)` | Ellipse centered at `(x, y)` |
+| `line(x1, y1, x2, y2)` | Line segment |
+| `point(x, y)` | Dot using the stroke color and width |
+| `quad(x1, y1, x2, y2, x3, y3, x4, y4)` | Quadrilateral |
+| `rect(x, y, width, height)` | Rectangle |
+| `square(x, y, size)` | Square |
+| `triangle(x1, y1, x2, y2, x3, y3)` | Triangle |
+| `begin()`, `end(close = false)` | Begin a connected path and draw it, optionally closing it |
+| `vertex(x, y)` | Move to the first vertex, then connect subsequent vertices |
+| `bezierVertex(cx1, cy1, cx2, cy2, x, y)` | Append a cubic Bézier segment |
+| `quadraticVertex(cx, cy, x, y)` | Append a quadratic Bézier segment |
+| `curveVertex(cx1, cy1, cx2, cy2, radius)` | Append a tangent arc |
+
+Styles, transforms, and utilities:
+
+| Signatures | Description |
+| --- | --- |
+| `fill(color)`, `noFill()` | Set or disable fill |
+| `stroke(color)`, `noStroke()`, `strokeWidth(width)` | Configure stroke |
+| `shadow(color)`, `noShadow()`, `shadowBlur(amount)`, `shadowOffset(x = 0, y = 0)` | Configure shadows |
+| `font(font)`, `fontSize(size)`, `fontWeight(weight)` | Configure font |
+| `textAlign(alignment)`, `textBaseline(baseline)`, `text(text, x, y)` | Position and draw text |
+| `translate(x, y)`, `rotate(angle)`, `scale(x, y = x)` | Transform subsequent drawing |
+| `applyMatrix(a, b, c, d, e, f)`, `resetMatrix()` | Apply or reset a transform |
+| `push()`, `pop()` | Save or restore transform and style state |
+| `reset()` | Restore default drawing options and reset the transform |
+| `resize(width, height)` | Resize the canvas, clearing pixels and saved state |
+| `getOptions()` | Return a copy of the active drawing options |
+| `background(color)`, `clear()` | Fill or clear the whole canvas |
+| `erase(callback)` | Erase geometry drawn by a callback receiving a new `Path` |
+| `drawImage(image, x = 0, y = 0)` | Draw an image |
+| `getImage(sx, sy, sw, sh)` | Read an `ImageData` region |
+| `putImage(image, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight)` | Write `ImageData`; omit the last four arguments to write the whole image |
+| `linearGradient(x1, y1, x2, y2)` | Create a linear `CanvasGradient` |
+| `radialGradient(x1, y1, r1, x2, y2, r2)` | Create a radial `CanvasGradient` |
+| `createPath()` | Create a retained `Path` |
+| `createShape(x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0)` | Create a layered `Shape` |
+| `drawPath(path, x = 0, y = 0)`, `drawShape(shape, x = 0, y = 0)` | Render geometry with the current styles and an optional drawing offset |
+
+### Path and Shape
 
 Create geometry through a context so hit testing uses its native 2D context:
 
@@ -117,13 +235,24 @@ const shape = context.createShape(150, 100)
 context.drawShape(shape);
 ```
 
-Paths support primitives and connected vertices. Shapes compose ordered filled layers and contours; contours erase earlier layers. Shape properties `x`, `y`, `angle`, `anchorX`, and `anchorY` control position and rotation. `containsPoint(x, y)` on a shape accepts global coordinates.
+| Signature | Description |
+| --- | --- |
+| `new Path(context)` | Create a path using a native 2D context for hit testing |
+| `new Shape(context, x = 0, y = 0, angle = 0, anchorX = 0, anchorY = 0)` | Create a shape using a native 2D context |
+| `path.close()` | Close the current subpath |
+| `shape.layer(callback, contour = false)` | Add a layer; the callback receives a new `Path` |
+| `shape.contour(callback)` | Add an erasing contour; the callback receives a new `Path` |
+| `containsPoint(x, y)` | Test a point against the path or shape |
+| `getBoundingBox()` | Return `{ top, right, bottom, left, x, y, width, height }` |
+| `render(options = {})` | Render the path or shape into a separate canvas |
 
-`getBoundingBox()` returns `{ top, right, bottom, left, x, y, width, height }`. Empty geometry has zero-sized bounds. Shape bounds enclose its rotated layer bounding boxes and may be conservative around curves.
+`Path` supports the primitive and vertex signatures listed under `CanvasContext`, except `point`, `begin`, and `end`. Use `close()` to close a retained path. Geometry-building methods return the path or shape for chaining.
 
-`path.render(options)` and `shape.render(options)` return a separate canvas. Options include `fillStyle`, `strokeStyle`, `lineWidth`, `shadowColor`, `shadowBlur`, `shadowOffsetX`, and `shadowOffsetY`. Supply a fill or stroke to render visible geometry. Rendering expands and rounds bounds to accommodate strokes and shadows; geometric bounding boxes exclude that padding.
+Shape properties `x`, `y`, `angle`, `anchorX`, and `anchorY` control position and rotation. `shape.containsPoint(x, y)` accepts global coordinates.
 
-## Vectors
+Rendering options are `fillStyle`, `strokeStyle`, `lineWidth`, `shadowColor`, `shadowBlur`, `shadowOffsetX`, and `shadowOffsetY`. Supply a fill or stroke to render visible geometry, and an explicit `lineWidth` when using a stroke. `CanvasContext.drawPath()` and `drawShape()` supply the current drawing options automatically.
+
+### Vector
 
 ```js
 import { Vector } from '@fr0st/f5';
@@ -134,56 +263,55 @@ const direction = velocity.clone().normalize();
 const position = Vector.create(10, 20).add(velocity);
 ```
 
-Arithmetic and rotation methods mutate the vector and return it. Use `clone()` when the original must remain unchanged. `add`, `sub`, `mult`, and `div` accept a vector or separate X/Y components. `dot`, `distTo`, `angleTo`, `getMag`, and `getHeading` return numbers. `Vector.random()` samples each component independently from `[0, 1)`; it does not return a unit vector.
+| Signature | Description |
+| --- | --- |
+| `new Vector(x = 0, y = 0)`, `Vector.create(x = 0, y = 0)` | Create a vector with public `x` and `y` components |
+| `Vector.parse(x = 0, y = 0)` | Return an existing vector unchanged, or create one from components |
+| `Vector.random()` | Create a vector with each component sampled independently from `[0, 1)` |
+| `clone()` | Return an independent copy |
+| `add(x, y)`, `sub(x, y)`, `mult(x, y)`, `div(x, y)` | Apply component-wise arithmetic |
+| `dot(x, y)`, `distTo(x, y)`, `angleTo(x, y)` | Return the dot product, distance, or difference in headings |
+| `getMag()`, `getHeading()` | Return the magnitude or heading |
+| `setMag(mag)`, `setHeading(angle)` | Set magnitude or heading, preserving the other |
+| `normalize()`, `limit(mag)` | Set magnitude to 1 or limit its maximum |
+| `rotate(angle)` | Rotate while preserving magnitude |
+
+Arithmetic, dot product, distance, and angle methods accept a vector or separate X/Y components. Arithmetic and magnitude/heading changes mutate the vector and return it; use `clone()` to preserve the original.
+
+## Behavior notes
+
+- Drawing coordinates are canvas units; angles are radians. `circle` takes a radius, while `ellipse` takes width and height.
+- `setup()` runs during construction, followed by the first `update()` unless the loop was stopped in `setup()`. Initialize sketch state in `setup()` so it is available to that first update. Update times are in seconds, with zero delta and elapsed time on the first update.
+- `noLoop()` stops future updates. `destroy()` also removes listeners and clears input state; repeated destruction is safe. Neither removes the canvas element, and there is no loop restart method.
+- `push()` and `pop()` save and restore transforms and styles. `resize()` clears pixels and saved state; `reset()` restores drawing defaults and the transform without clearing pixels.
+- Shapes compose ordered layers and contours; contours erase earlier layers. Empty geometry has zero-sized bounds. Shape bounds enclose rotated layer bounding boxes and may be conservative around curves.
+- Rendering expands and rounds bounds for strokes and shadows; geometric bounding boxes exclude that padding.
+- `Vector.random()` does not return a unit vector. `angleTo()` returns the other heading minus the current heading without wrapping the result.
 
 ## Development
 
-```sh
-npm ci
-npx playwright install --with-deps chromium firefox webkit
-npm run lint
+Install dependencies with `npm ci`, then install Playwright browsers with `npx playwright install --with-deps`.
+
+```bash
 npm test
-npm run test:coverage
-```
-
-| Command | Behavior |
-| --- | --- |
-| `npm run build` | Builds ESM and UMD, minified and unminified, with source maps |
-| `npm run lint` | Checks source, configuration, demo scripts, and test JavaScript |
-| `npm test` | Builds once, then runs unit and three-browser tests |
-| `npm run test:unit` | Runs module and lifecycle tests without launching browsers |
-| `npm run test:browser` | Tests existing bundles in Chromium, Firefox, and WebKit |
-| `npm run test:coverage` | Runs Chromium browser tests with Monocart source coverage |
-| `npm run test:headed` | Runs browser tests with visible browsers |
-| `npm run test:ui` | Opens the Playwright test UI |
-
-Run `npm run build` before the standalone browser, coverage, headed, or UI commands. To select one browser, use `npm run test:browser -- --project=chromium`.
-
-Tests use `test/unit`, `test/browser`, shared setup in `test/setup`, and fixtures/server files in `test/support`. Browser tests exercise the built UMD library; distribution checks also verify ESM, minified UMD, and source imports. The browser fixture checks uncaught errors and cleans up its sketch.
-
-Coverage is collected from the unminified UMD bundle and mapped to `src/`. Reports are written to `coverage/` (HTML and LCOV) and `test-results/coverage/`. This is **browser coverage**, not a merged unit/browser total: unit-only geometry branches remain uncovered in that report. Codecov uses the sibling project policy: a 95% project coverage target with a 5% threshold; patch coverage is informational.
-
-To browse the self-contained demos:
-
-```sh
+npm run lint
 npm run build
-node test/support/server/static-server.js
 ```
 
-Open `http://127.0.0.1:4173/demo/index.html`. Set `PORT` to change the server and Playwright port.
+`npm test` rebuilds the bundles, runs the geometry and lifecycle unit tests once, then runs the browser suite in Chromium, Firefox, and WebKit. Both suites use Playwright. `npm run test:unit` runs without a browser or web server. `npm run test:browser` runs against the existing bundles, so rebuild after changing source files.
 
-## Distribution and compatibility
+After building, `npm run test:coverage` runs Chromium tests and writes coverage reports to `coverage/`.
 
-The build writes `f5.esm.js`, `f5.esm.min.js`, `f5.js`, and `f5.min.js`, each with a `.map` file. Keep `dist/` committed: CI rebuilds it and rejects stale or untracked bundles. The package includes `src`, `dist`, the README, and license.
+`npm run test:headed` and `npm run test:ui` also use the existing bundles and open headed browsers or the Playwright UI.
 
-The package root now resolves to built ESM instead of `src/index.js`. Existing `window.F5`, UMD filenames, and named exports are retained. Explicit `@fr0st/f5/src/*` and `@fr0st/f5/dist/*` imports are supported. Other package subpaths, including `@fr0st/f5/package.json`, are restricted by the export map. Legacy capitalized source directories were removed by the baseline refactor; use the root exports instead of internal paths. Review these path changes when choosing the next release version.
+To view the demo, open `demo/index.html` in your browser after building.
 
-## Releases
+## Migration
 
-CI follows the sibling Frost matrix: Chromium on Node 20, 22, and 24; Firefox and WebKit on Node 24. It runs lint, build, unit/browser tests, coverage upload, bundle freshness checks, and `npm pack --dry-run`.
+The package root resolves to built ESM instead of `src/index.js`. The UMD global `F5`, UMD filenames, and five named exports are retained.
 
-Publishing a GitHub release triggers the publish workflow, which repeats validation and runs `npm publish --provenance`. Before the first release, configure npm trusted publishing for this repository's `publish.yml` workflow and enable the repository in Codecov. Repository links continue to use the configured `elusivecodes/F5` remote. Set the release version deliberately; tooling alignment alone does not publish a package.
+Use root exports in place of the removed capitalized source directories. Explicit `@fr0st/f5/src/*` and `@fr0st/f5/dist/*` imports remain available; other package subpaths, including `@fr0st/f5/package.json`, are restricted by the export map.
 
 ## License
 
-[MIT](LICENSE)
+F5 is released under the [MIT License](./LICENSE).
