@@ -27,11 +27,16 @@ export function stubGlobal(name, value) {
 export function createEventTarget(extra = {}) {
     const listeners = new Map();
     const target = {
-        addEventListener(type, callback) {
+        addEventListener(type, callback, { signal } = {}) {
+            if (signal?.aborted) {
+                return;
+            }
+
             const entries = listeners.get(type) ?? [];
 
             entries.push(callback);
             listeners.set(type, entries);
+            signal?.addEventListener('abort', () => target.removeEventListener(type, callback), { once: true });
         },
         listenerCount() {
             return [...listeners.values()].reduce((count, entries) => count + entries.length, 0);
@@ -67,6 +72,7 @@ export function createAnimationWindow(initialNow = 0) {
     const callbacks = new Map();
 
     const runtime = createEventTarget({
+        AbortController,
         advanceTime(delta) {
             now += delta;
         },
@@ -99,6 +105,7 @@ export function createAnimationWindow(initialNow = 0) {
     });
 
     runtime.eventTarget = runtime;
+    runtime.performance = { now: runtime.now };
 
     return runtime;
 }

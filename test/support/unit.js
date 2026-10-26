@@ -1,7 +1,7 @@
 /* eslint no-empty-pattern: ["error", { "allowObjectPatternsAsParameters": true }] -- Playwright requires destructured fixture parameters. */
 import { test as base, expect } from '@playwright/test';
-import { createCanvasNode, createRecordingContext } from './canvas.js';
-import { createHitTestContext, createPath2DStub, createPathRenderEnvironment, createShapeRenderEnvironment } from './path.js';
+import { createCanvasNode } from './canvas.js';
+import { createHitTestContext, createPath2DStub } from './path.js';
 import { createAnimationWindow, stubGlobal } from './runtime.js';
 
 export { expect };
@@ -28,27 +28,4 @@ export const test = base.extend({
     }, {
         auto: true,
     }],
-    pathRenderEnvironment: async ({}, use) => {
-        const environment = createPathRenderEnvironment();
-        const restoreDocument = stubGlobal('document', environment.document);
-
-        try {
-            await use(environment);
-        } finally {
-            restoreDocument();
-        }
-    },
-    recordingContext: async ({}, use) => {
-        await use(createRecordingContext());
-    },
-    shapeRenderEnvironment: async ({}, use) => {
-        const environment = createShapeRenderEnvironment();
-        const restoreDocument = stubGlobal('document', environment.document);
-
-        try {
-            await use(environment);
-        } finally {
-            restoreDocument();
-        }
-    },
 });

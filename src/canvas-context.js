@@ -19,8 +19,8 @@ import Shape from './shape.js';
  * Provides chainable drawing, styling, and transforms for a 2D canvas.
  */
 export default class CanvasContext {
-    /** @type {Readonly<CanvasContextOptions>} */
-    static defaults = Object.freeze({
+    /** @type {CanvasContextOptions} */
+    static defaults = {
         fillStyle: null,
         font: 'sans-serif',
         fontSize: 10,
@@ -33,7 +33,7 @@ export default class CanvasContext {
         strokeStyle: '#000',
         textAlign: 'start',
         textBaseline: 'alphabetic',
-    });
+    };
 
     #context;
     #hasVertex = false;

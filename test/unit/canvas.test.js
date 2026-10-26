@@ -232,10 +232,7 @@ test.describe('Canvas', () => {
         }) => {
             const node = canvasNode(undefined, {
                 ownerDocument: {
-                    defaultView: {
-                        ...animationWindow,
-                        performance: { now: animationWindow.now },
-                    },
+                    defaultView: animationWindow,
                 },
             });
 

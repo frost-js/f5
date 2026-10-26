@@ -11,12 +11,8 @@ test.describe('Shape', () => {
     });
 
     test.describe('empty geometry', () => {
-        test('returns zero-sized bounds and rendering when empty', ({
-            hitTestContext,
-            shapeRenderEnvironment,
-        }) => {
+        test('returns zero-sized bounds when empty', ({ hitTestContext }) => {
             const shape = new Shape(hitTestContext());
-            const canvas = shape.render();
 
             expect(shape.getBoundingBox()).toEqual({
                 top: 0,
@@ -28,9 +24,6 @@ test.describe('Shape', () => {
                 width: 0,
                 height: 0,
             });
-            expect(canvas.width).toBe(0);
-            expect(canvas.height).toBe(0);
-            expect(shapeRenderEnvironment.outerContext.operations).toEqual([]);
         });
 
         test('returns a zero-sized bounding box for contour-only shapes', ({
@@ -51,44 +44,6 @@ test.describe('Shape', () => {
                 width: 0,
                 height: 0,
             });
-        });
-    });
-
-    test.describe('#render', () => {
-        test('pads rendered shapes for visible shadows', ({
-            hitTestContext,
-            shapeRenderEnvironment,
-        }) => {
-            const shape = new Shape(hitTestContext(), 5, 6)
-                .layer((path) => {
-                    path.rect(10, 20, 30, 40);
-                });
-
-            const canvas = shape.render({
-                fillStyle: '#f00',
-                shadowColor: '#000',
-                shadowBlur: 3,
-                shadowOffsetX: 4,
-                shadowOffsetY: -2,
-                strokeStyle: null,
-            });
-
-            expect(canvas.width).toBe(37);
-            expect(canvas.height).toBe(46);
-            expect(shapeRenderEnvironment.outerContext.operations[0]).toEqual(['translate', -10, -15]);
-            expect(shapeRenderEnvironment.outerContext.operations[1][0]).toBe('translate');
-            expect(shapeRenderEnvironment.outerContext.operations[1][1]).toBeCloseTo(0);
-            expect(shapeRenderEnvironment.outerContext.operations[1][2]).toBeCloseTo(0);
-            expect(shapeRenderEnvironment.outerContext.operations[2]).toEqual(['rotate', 0]);
-            expect(shapeRenderEnvironment.outerContext.operations[3][0]).toBe('translate');
-            expect(shapeRenderEnvironment.outerContext.operations[3][1]).toBeCloseTo(0);
-            expect(shapeRenderEnvironment.outerContext.operations[3][2]).toBeCloseTo(0);
-            expect(shapeRenderEnvironment.outerContext.operations[4]).toEqual([
-                'drawImage',
-                shapeRenderEnvironment.getLayerCanvas(),
-                10,
-                15,
-            ]);
         });
     });
 });

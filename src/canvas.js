@@ -20,10 +20,10 @@ import Vector from './vector.js';
 export default class Canvas {
     #cancelAnimationFrame;
     #disposed = false;
+    #eventsController = null;
     #eventTarget;
     #frameId = null;
     #keysDown = new Set();
-    #listeners = [];
     #loop = true;
     #mouseDown = new Set();
     #mouseX = null;
@@ -34,6 +34,7 @@ export default class Canvas {
     #requestAnimationFrame;
     #started = false;
     #startTime = null;
+    #window;
 
     /**
      * Creates a canvas element and starts a fully constructed Canvas.
@@ -67,19 +68,20 @@ export default class Canvas {
      * @throws {TypeError} When the node does not provide canvas and event APIs.
      */
     constructor(node, width = 600, height = 400, options = {}) {
-        if (!node || typeof node.addEventListener !== 'function') {
+        const view = node?.ownerDocument?.defaultView;
+
+        if (!view || typeof node.addEventListener !== 'function') {
             throw new TypeError('Canvas requires a canvas element.');
         }
 
         const runtime = options.runtime ?? {};
-        const view = node.ownerDocument?.defaultView ?? globalThis.window;
-        const clock = view?.performance ?? globalThis.performance;
 
         this.#node = node;
+        this.#window = view;
         this.#eventTarget = runtime.eventTarget ?? view;
         this.#cancelAnimationFrame = runtime.cancelAnimationFrame ??
             this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
-        this.#now = runtime.now ?? (() => clock.now());
+        this.#now = runtime.now ?? (() => this.#window.performance.now());
         this.#requestAnimationFrame = runtime.requestAnimationFrame ??
             this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
 
@@ -101,13 +103,8 @@ export default class Canvas {
         this.noLoop();
         this.#disposed = true;
 
-        for (const { listener, target, type } of this.#listeners) {
-            if (typeof target.removeEventListener === 'function') {
-                target.removeEventListener(type, listener);
-            }
-        }
-
-        this.#listeners = [];
+        this.#eventsController?.abort();
+        this.#eventsController = null;
 
         this.#mouseDown.clear();
         this.#keysDown.clear();
@@ -310,25 +307,14 @@ export default class Canvas {
     }
 
     /**
-     * Adds an event listener and track it for cleanup.
-     * @param {EventTarget} target The event target.
-     * @param {string} type The event type.
-     * @param {Function} listener The event listener.
-     */
-    #addEventListener(target, type, listener) {
-        target.addEventListener(type, listener);
-        this.#listeners.push({
-            listener,
-            target,
-            type,
-        });
-    }
-
-    /**
      * Attaches events for the Canvas.
      */
     #events() {
-        this.#addEventListener(this.#eventTarget, 'mouseup', (e) => {
+        this.#eventsController = new this.#window.AbortController();
+
+        const { signal } = this.#eventsController;
+
+        this.#eventTarget.addEventListener('mouseup', (e) => {
             if (!this.#mouseDown.has(e.button)) {
                 return;
             }
@@ -338,9 +324,9 @@ export default class Canvas {
             this.#updateMouse(e);
 
             this.onMouseUp(e.button, e);
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#eventTarget, 'keyup', (e) => {
+        this.#eventTarget.addEventListener('keyup', (e) => {
             if (!this.#keysDown.has(e.code)) {
                 return;
             }
@@ -348,46 +334,46 @@ export default class Canvas {
             this.#keysDown.delete(e.code);
 
             this.onKeyUp(e.code, e);
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#node, 'mouseenter', (e) => {
+        this.#node.addEventListener('mouseenter', (e) => {
             this.#updateMouse(e);
 
             this.onMouseEnter(e);
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#node, 'mouseleave', (e) => {
+        this.#node.addEventListener('mouseleave', (e) => {
             this.#updateMouse(e);
 
             this.onMouseLeave(e);
 
             this.#mouseX = null;
             this.#mouseY = null;
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#node, 'mousemove', (e) => {
+        this.#node.addEventListener('mousemove', (e) => {
             this.#updateMouse(e);
 
             if (this.#mouseX !== null && this.#mouseY !== null) {
                 this.onMouseMove(this.#mouseX, this.#mouseY, e);
             }
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#node, 'mousedown', (e) => {
+        this.#node.addEventListener('mousedown', (e) => {
             this.#mouseDown.add(e.button);
 
             this.#updateMouse(e);
 
             this.onMouseDown(e.button, e);
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#node, 'click', (e) => {
+        this.#node.addEventListener('click', (e) => {
             this.#updateMouse(e);
 
             this.onMouseClick(e.button, e);
-        });
+        }, { signal });
 
-        this.#addEventListener(this.#node, 'keydown', (e) => {
+        this.#node.addEventListener('keydown', (e) => {
             this.#keysDown.add(e.code);
 
             this.onKeyDown(e.code, e);
@@ -395,7 +381,7 @@ export default class Canvas {
             if (!e.repeat && typeof e.key === 'string' && e.key.length === 1) {
                 this.onKeyPress(e.key, e);
             }
-        });
+        }, { signal });
     }
 
     /**

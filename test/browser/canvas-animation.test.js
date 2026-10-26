@@ -7,68 +7,35 @@ test.describe('Canvas animation', () => {
     test.use({ mockClock: true });
 
     test.describe('timing', () => {
-        test('passes delta and elapsed time to update using a real canvas node', async ({ page }) => {
-            const calls = await page.evaluate(() => {
-                const { Canvas } = window.F5;
-                const timestamps = [1000, 1016];
-                const animationFrames = [];
-                const runtime = {
-                    cancelAnimationFrame() {},
-                    eventTarget: window,
-                    now() {
-                        return timestamps.length ?
-                            timestamps.shift() :
-                            1016;
-                    },
-                    requestAnimationFrame(callback) {
-                        animationFrames.push(callback);
-
-                        return animationFrames.length;
-                    },
-                };
-
-                class Sketch extends Canvas {
-                    setup() {
-                        this.calls = [];
-                    }
+        test('uses the browser clock for delta and elapsed time', async ({ page }) => {
+            await page.evaluate(() => {
+                class Sketch extends F5.Canvas {
+                    calls = [];
 
                     update(deltaTime, elapsedTime) {
-                        this.calls.push({
-                            deltaTime,
-                            elapsedTime,
-                        });
-
-                        if (this.calls.length === 2) {
-                            this.noLoop();
-                        }
+                        this.calls.push({ deltaTime, elapsedTime, time: performance.now() });
                     }
                 }
 
-                try {
-                    window.sketch = new Sketch(document.getElementById('canvas'), 600, 400, {
-                        runtime,
-                    });
-                    window.sketch.start();
-
-                    animationFrames[0]();
-
-                    return window.sketch.calls;
-                } finally {
-                    window.sketch?.dispose();
-                    delete window.sketch;
-                }
+                window.sketch = new Sketch(document.getElementById('canvas'));
+                window.sketch.start();
             });
 
-            expect(calls).toEqual([
-                {
-                    deltaTime: 0,
-                    elapsedTime: 0,
-                },
-                {
-                    deltaTime: 0.016,
-                    elapsedTime: 0.016,
-                },
-            ]);
+            await page.clock.runFor(50);
+
+            const calls = await page.evaluate(() => window.sketch.calls);
+
+            expect(calls.length).toBeGreaterThan(1);
+            expect(calls[0].deltaTime).toBe(0);
+            expect(calls[0].elapsedTime).toBe(0);
+
+            for (let index = 1; index < calls.length; index++) {
+                const call = calls[index];
+
+                expect(call.deltaTime).toBeGreaterThan(0);
+                expect(call.deltaTime).toBeCloseTo((call.time - calls[index - 1].time) / 1000);
+                expect(call.elapsedTime).toBeCloseTo((call.time - calls[0].time) / 1000);
+            }
         });
     });
 

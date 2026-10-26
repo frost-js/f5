@@ -158,7 +158,7 @@ Input hooks receive the native event as their last argument:
 
 Click or tab to the canvas to focus it for keyboard input. Existing `tabindex` and focus styles are preserved. Mouse positions use canvas drawing units, including when CSS scales the canvas.
 
-The optional fourth constructor argument, or fourth argument to `Canvas.attach`, accepts `{ runtime }`. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling/cancellation functions together. This supports deterministic tests and custom browser embedding; defaults use the canvas element’s owning window for timing and events.
+The optional fourth constructor argument, or fourth argument to `Canvas.attach`, accepts `{ runtime }`. A custom runtime may supply `now()` in milliseconds, `requestAnimationFrame(callback)`, `cancelAnimationFrame(id)`, and `eventTarget`. Supply matching scheduling/cancellation functions together. This supports deterministic tests and custom browser embedding; defaults use the canvas element’s owning window for timing and events. Custom event targets must support the `addEventListener` `signal` option so disposal removes their listeners.
 
 ### CanvasContext
 
@@ -166,7 +166,7 @@ The optional fourth constructor argument, or fourth argument to `Canvas.attach`,
 new CanvasContext(node, width = 600, height = 400, options = {});
 ```
 
-Wrap a canvas element with chainable drawing and style methods. Constructor options use these defaults:
+Wrap a canvas element with chainable drawing and style methods. Set `CanvasContext.defaults` properties before construction to customize application-wide defaults. Each context copies the defaults and applies its own options; `reset()` restores the current shared defaults. Constructor options use these defaults:
 
 | Option | Default | Description |
 | --- | --- | --- |

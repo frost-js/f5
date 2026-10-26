@@ -1167,8 +1167,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	* Provides chainable drawing, styling, and transforms for a 2D canvas.
 	*/
 	var CanvasContext = class {
-		/** @type {Readonly<CanvasContextOptions>} */
-		static defaults = Object.freeze({
+		/** @type {CanvasContextOptions} */
+		static defaults = {
 			fillStyle: null,
 			font: "sans-serif",
 			fontSize: 10,
@@ -1181,7 +1181,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			strokeStyle: "#000",
 			textAlign: "start",
 			textBaseline: "alphabetic"
-		});
+		};
 		#context;
 		#hasVertex = false;
 		#node;
@@ -1847,10 +1847,10 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 	var Canvas = class {
 		#cancelAnimationFrame;
 		#disposed = false;
+		#eventsController = null;
 		#eventTarget;
 		#frameId = null;
 		#keysDown = /* @__PURE__ */ new Set();
-		#listeners = [];
 		#loop = true;
 		#mouseDown = /* @__PURE__ */ new Set();
 		#mouseX = null;
@@ -1861,6 +1861,7 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		#requestAnimationFrame;
 		#started = false;
 		#startTime = null;
+		#window;
 		/**
 		* Creates a canvas element and starts a fully constructed Canvas.
 		* @param {HTMLElement} [parent=document.body] The parent node.
@@ -1888,14 +1889,14 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		* @throws {TypeError} When the node does not provide canvas and event APIs.
 		*/
 		constructor(node, width = 600, height = 400, options = {}) {
-			if (!node || typeof node.addEventListener !== "function") throw new TypeError("Canvas requires a canvas element.");
+			const view = node?.ownerDocument?.defaultView;
+			if (!view || typeof node.addEventListener !== "function") throw new TypeError("Canvas requires a canvas element.");
 			const runtime = options.runtime ?? {};
-			const view = node.ownerDocument?.defaultView ?? globalThis.window;
-			const clock = view?.performance ?? globalThis.performance;
 			this.#node = node;
+			this.#window = view;
 			this.#eventTarget = runtime.eventTarget ?? view;
 			this.#cancelAnimationFrame = runtime.cancelAnimationFrame ?? this.#eventTarget.cancelAnimationFrame.bind(this.#eventTarget);
-			this.#now = runtime.now ?? (() => clock.now());
+			this.#now = runtime.now ?? (() => this.#window.performance.now());
 			this.#requestAnimationFrame = runtime.requestAnimationFrame ?? this.#eventTarget.requestAnimationFrame.bind(this.#eventTarget);
 			this.context = new CanvasContext(this.#node, width, height);
 			if (!this.#node.hasAttribute("tabindex")) this.#node.setAttribute("tabindex", "0");
@@ -1907,8 +1908,8 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 			if (this.#disposed) return;
 			this.noLoop();
 			this.#disposed = true;
-			for (const { listener, target, type } of this.#listeners) if (typeof target.removeEventListener === "function") target.removeEventListener(type, listener);
-			this.#listeners = [];
+			this.#eventsController?.abort();
+			this.#eventsController = null;
 			this.#mouseDown.clear();
 			this.#keysDown.clear();
 			this.#mouseX = null;
@@ -2039,62 +2040,50 @@ Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
 		*/
 		update(_deltaTime, _elapsedTime) {}
 		/**
-		* Adds an event listener and track it for cleanup.
-		* @param {EventTarget} target The event target.
-		* @param {string} type The event type.
-		* @param {Function} listener The event listener.
-		*/
-		#addEventListener(target, type, listener) {
-			target.addEventListener(type, listener);
-			this.#listeners.push({
-				listener,
-				target,
-				type
-			});
-		}
-		/**
 		* Attaches events for the Canvas.
 		*/
 		#events() {
-			this.#addEventListener(this.#eventTarget, "mouseup", (e) => {
+			this.#eventsController = new this.#window.AbortController();
+			const { signal } = this.#eventsController;
+			this.#eventTarget.addEventListener("mouseup", (e) => {
 				if (!this.#mouseDown.has(e.button)) return;
 				this.#mouseDown.delete(e.button);
 				this.#updateMouse(e);
 				this.onMouseUp(e.button, e);
-			});
-			this.#addEventListener(this.#eventTarget, "keyup", (e) => {
+			}, { signal });
+			this.#eventTarget.addEventListener("keyup", (e) => {
 				if (!this.#keysDown.has(e.code)) return;
 				this.#keysDown.delete(e.code);
 				this.onKeyUp(e.code, e);
-			});
-			this.#addEventListener(this.#node, "mouseenter", (e) => {
+			}, { signal });
+			this.#node.addEventListener("mouseenter", (e) => {
 				this.#updateMouse(e);
 				this.onMouseEnter(e);
-			});
-			this.#addEventListener(this.#node, "mouseleave", (e) => {
+			}, { signal });
+			this.#node.addEventListener("mouseleave", (e) => {
 				this.#updateMouse(e);
 				this.onMouseLeave(e);
 				this.#mouseX = null;
 				this.#mouseY = null;
-			});
-			this.#addEventListener(this.#node, "mousemove", (e) => {
+			}, { signal });
+			this.#node.addEventListener("mousemove", (e) => {
 				this.#updateMouse(e);
 				if (this.#mouseX !== null && this.#mouseY !== null) this.onMouseMove(this.#mouseX, this.#mouseY, e);
-			});
-			this.#addEventListener(this.#node, "mousedown", (e) => {
+			}, { signal });
+			this.#node.addEventListener("mousedown", (e) => {
 				this.#mouseDown.add(e.button);
 				this.#updateMouse(e);
 				this.onMouseDown(e.button, e);
-			});
-			this.#addEventListener(this.#node, "click", (e) => {
+			}, { signal });
+			this.#node.addEventListener("click", (e) => {
 				this.#updateMouse(e);
 				this.onMouseClick(e.button, e);
-			});
-			this.#addEventListener(this.#node, "keydown", (e) => {
+			}, { signal });
+			this.#node.addEventListener("keydown", (e) => {
 				this.#keysDown.add(e.code);
 				this.onKeyDown(e.code, e);
 				if (!e.repeat && typeof e.key === "string" && e.key.length === 1) this.onKeyPress(e.key, e);
-			});
+			}, { signal });
 		}
 		/**
 		* Updates the canvas-local mouse coordinates from an event.
